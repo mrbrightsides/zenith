@@ -9,7 +9,7 @@ import OrchestratorStudio from './components/OrchestratorStudio';
 import Architecture from './components/Architecture';
 import LandingPage from './components/LandingPage';
 import { StudioTab } from './types';
-import { auth, GoogleCloudService } from './services/firebaseService';
+import { auth, db, GoogleCloudService } from './services/firebaseService';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const App: React.FC = () => {
@@ -20,6 +20,8 @@ const App: React.FC = () => {
   const [isLanding, setIsLanding] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [forceSandbox, setForceSandbox] = useState(() => localStorage.getItem('zenith_force_sandbox') === 'true');
+  const [authError, setAuthError] = useState<string | null>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,33 +80,54 @@ const App: React.FC = () => {
   };
 
   const handleSignUp = async () => {
-    if (!auth) return;
+    if (!auth) {
+      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
+      return;
+    }
     setAuthLoading(true);
+    setAuthError(null);
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
-      alert(error.message);
+      setAuthError(error.message);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleLogin = async () => {
-    if (!auth) return;
+    if (!auth) {
+      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
+      return;
+    }
     setAuthLoading(true);
+    setAuthError(null);
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
-      alert(error.message);
+      setAuthError(error.message);
     } finally {
       setAuthLoading(false);
     }
   };
 
   const handleLogout = async () => {
-    if (!auth) return;
-    await signOut(auth);
+    if (auth) {
+      await signOut(auth);
+    }
+    setForceSandbox(false);
+    localStorage.removeItem('zenith_force_sandbox');
     setIsProfileModalOpen(false);
+  };
+
+  const toggleSandbox = () => {
+    const newState = !forceSandbox;
+    setForceSandbox(newState);
+    if (newState) {
+      localStorage.setItem('zenith_force_sandbox', 'true');
+    } else {
+      localStorage.removeItem('zenith_force_sandbox');
+    }
   };
 
   const toggleTheme = () => {
@@ -115,8 +138,6 @@ const App: React.FC = () => {
 
   const renderContent = () => {
     const commonProps = { theme, initialItem: recallItem };
-    
-    // Clear recall item once passed to components to prevent infinite loops
     const onComponentMounted = () => setRecallItem(null);
 
     switch (activeTab) {
@@ -130,20 +151,29 @@ const App: React.FC = () => {
     }
   };
 
-  const isGCPConfigured = GoogleCloudService.isConfigured();
+  const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox;
 
   if (isLanding && (!isGCPConfigured || !user)) {
     return <LandingPage theme={theme} onEnter={() => setIsLanding(false)} />;
   }
 
+  // If GCP is configured but user isn't logged in AND we aren't forcing sandbox mode
   if (isGCPConfigured && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
-        <div className="glass p-12 rounded-[3rem] w-full max-w-md border border-white/10 space-y-8 animate-in fade-in zoom-in-95 duration-500">
+        <div className="glass p-12 rounded-[3rem] w-full max-w-md border border-white/10 space-y-8 animate-in fade-in zoom-in-95 duration-500 shadow-2xl">
           <div className="text-center space-y-2">
             <h2 className="text-3xl font-black text-white italic">Neural Portal</h2>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Identity Verification Protocol</p>
           </div>
+
+          {authError && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-[11px] text-red-400 font-medium animate-in slide-in-from-top-2">
+              <i className="fas fa-exclamation-circle mr-2"></i>
+              {authError}
+            </div>
+          )}
+
           <div className="space-y-4">
             <input 
               type="email" 
@@ -162,10 +192,16 @@ const App: React.FC = () => {
           </div>
           <div className="flex gap-4">
             <button onClick={handleLogin} disabled={authLoading} className="flex-1 bg-white text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95 disabled:opacity-50">Authorize</button>
-            <button onClick={handleSignUp} disabled={authLoading} className="flex-1 bg-slate-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50">Create Agent ID</button>
+            <button onClick={handleSignUp} disabled={authLoading} className="flex-1 bg-slate-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50">Create ID</button>
           </div>
-          <div className="text-center">
-             <button onClick={() => setIsLanding(true)} className="text-[10px] text-slate-600 uppercase tracking-widest hover:text-slate-400">Return to Surface</button>
+          <div className="text-center pt-4 space-y-6">
+             <button 
+              onClick={() => { toggleSandbox(); setIsLanding(false); }} 
+              className="w-full py-4 border border-indigo-500/30 text-indigo-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/10 transition-all active:scale-95"
+             >
+                Launch Sandbox Mode (Local Storage Only)
+             </button>
+             <button onClick={() => setIsLanding(true)} className="text-[10px] text-slate-600 uppercase tracking-widest hover:text-slate-400 block w-full">Return to Surface</button>
           </div>
         </div>
       </div>
@@ -182,7 +218,7 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500'}`}></div>
               <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]">
-                {isGCPConfigured ? 'Challenge Server Linked' : 'Local Sandbox Mode'}
+                {isGCPConfigured ? 'Challenge Server Linked' : 'Sandbox Environment'}
               </span>
             </div>
             <i className="fas fa-chevron-right text-[8px] text-slate-700"></i>
@@ -245,9 +281,9 @@ const App: React.FC = () => {
             >
               <div className="text-right hidden sm:block">
                 <p className={`text-[10px] font-black uppercase tracking-tighter truncate max-w-[120px] transition-colors ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                  {user?.email || 'Guest Agent'}
+                  {user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
                 </p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Challenge Participant</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{forceSandbox ? 'Local Access' : 'Challenge Participant'}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors">
                 <i className="fas fa-user-shield text-white text-sm"></i>
@@ -295,15 +331,17 @@ const App: React.FC = () => {
                 <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authorized Email</span>
-                    <span className="text-xs font-bold">{user?.email || 'N/A'}</span>
+                    <span className="text-xs font-bold">{user?.email || (forceSandbox ? 'Local Account' : 'N/A')}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
-                    <span className="text-[9px] font-black uppercase tracking-widest text-emerald-500">Challenge Native</span>
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${isGCPConfigured ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {isGCPConfigured ? 'Challenge Native' : 'Sandbox Mode'}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Agent UID</span>
-                    <span className="text-[8px] font-mono opacity-50">{user?.uid || 'GUEST_AGENT'}</span>
+                    <span className="text-[8px] font-mono opacity-50">{user?.uid || 'LOCAL_AGENT_SANDBOX'}</span>
                   </div>
                 </div>
 
@@ -320,7 +358,7 @@ const App: React.FC = () => {
                     className="p-6 rounded-3xl glass border border-white/5 hover:border-red-500/30 transition-all flex flex-col items-center gap-2 group"
                   >
                     <i className="fas fa-sign-out-alt text-xl text-red-500 group-hover:scale-110 transition-transform"></i>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Sever Auth</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Terminate Link</span>
                   </button>
                 </div>
               </div>

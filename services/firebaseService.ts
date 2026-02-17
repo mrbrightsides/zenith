@@ -3,6 +3,11 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 
+// Helper to validate if a string is a real value and not a "placeholder" or "undefined" from build tools
+const isValidConfigString = (val: any) => {
+  return typeof val === 'string' && val.trim() !== '' && val !== 'undefined' && val !== 'null';
+};
+
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -22,7 +27,8 @@ export const getFirebaseDiagnostics = () => {
   };
 };
 
-const isConfigured = !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY;
+const diagnostics = getFirebaseDiagnostics();
+const isConfigured = diagnostics.isFullyConfigured;
 
 let app = null;
 if (isConfigured) {
@@ -38,13 +44,13 @@ export const db = app ? getFirestore(app) : null;
 
 export class GoogleCloudService {
   static isConfigured(): boolean {
-    return !!db && !!auth;
+    // App is configured only if Firebase initialized successfully and all keys are valid
+    return !!db && !!auth && diagnostics.isFullyConfigured;
   }
 
   static async saveCampaign(goal: string, narrative: string, imageUrl: string, videoUrl: string) {
     if (!this.isConfigured() || !auth?.currentUser) {
-      console.warn("GCP Persistence: Firestore not connected. Ensure FIREBASE_PROJECT_ID is set.");
-      // Fallback: Store locally if cloud is not connected to keep app usable
+      console.warn("GCP Persistence: Firestore not connected or user not logged in. Falling back to Local Storage.");
       this.saveToLocal(goal, narrative, imageUrl, videoUrl);
       return null;
     }
@@ -61,6 +67,8 @@ export class GoogleCloudService {
       return docRef.id;
     } catch (error) {
       console.error("GCP Cloud Save Error:", error);
+      // Even on cloud error, save locally as a safety measure
+      this.saveToLocal(goal, narrative, imageUrl, videoUrl);
       throw error;
     }
   }
@@ -74,7 +82,7 @@ export class GoogleCloudService {
   static async getCampaigns() {
     if (!this.isConfigured() || !auth?.currentUser) {
       const local = JSON.parse(localStorage.getItem('zenith_campaign_fallback') || '[]');
-      return local.reverse();
+      return [...local].reverse();
     }
 
     try {
@@ -91,7 +99,9 @@ export class GoogleCloudService {
       }));
     } catch (error) {
       console.error("GCP Cloud Fetch Error:", error);
-      return [];
+      // Fallback to local on cloud fetch failure
+      const local = JSON.parse(localStorage.getItem('zenith_campaign_fallback') || '[]');
+      return [...local].reverse();
     }
   }
 }
