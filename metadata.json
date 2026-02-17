@@ -1,0 +1,10 @@
+
+{
+  "name": "ZENITH LIVE",
+  "description": "The ultimate multimodal agentic orchestrator. Official entry for the Gemini Live Agent Challenge, leveraging Gemini 3 and 2.5 for real-time agency.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZENITH LIVE | Gemini Agent Challenge</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --glass-bg: rgba(30, 41, 59, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --text-main: #f8fafc;
+      --bg-main: #0f172a;
+    }
+
+    .light {
+      --glass-bg: rgba(241, 245, 249, 0.8);
+      --glass-border: rgba(15, 24, 42, 0.1);
+      --text-main: #0f172a;
+      --bg-main: #f1f5f9;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
+      overflow-x: hidden;
+    }
+
+    .glass {
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+    }
+
+    .sidebar-active {
+      background: linear-gradient(to right, #3b82f6, #8b5cf6);
+    }
+
+    /* Tooltip Styles */
+    [data-tooltip] {
+      position: relative;
+    }
+    [data-tooltip]:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      background: #1e293b;
+      color: white;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      white-space: nowrap;
+      z-index: 100;
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+      animation: fadeIn 0.2s ease-out;
+      pointer-events: none;
+    }
+    .light [data-tooltip]:hover::after {
+      background: #f8fafc;
+      color: #0f172a;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, 4px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.2);
+      border-radius: 10px;
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.40.0",
+    "firebase/app": "https://esm.sh/firebase@11.2.0/app",
+    "firebase/auth": "https://esm.sh/firebase@11.2.0/auth?deps=firebase@11.2.0/app",
+    "firebase/firestore": "https://esm.sh/firebase@11.2.0/firestore?deps=firebase@11.2.0/app",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "firebase/": "https://esm.sh/firebase@^12.9.0/"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body>
+  <div id="root"></div>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>
