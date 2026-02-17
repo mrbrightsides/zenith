@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { db, auth, getFirebaseDiagnostics } from '../services/firebaseService';
 
@@ -9,16 +8,15 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   const diagnostics = getFirebaseDiagnostics();
 
   useEffect(() => {
-    // 1. Real GCP (Firestore) Connection Check
     const checkGCP = async () => {
-      if (!db || !diagnostics.isFullyConfigured) {
+      // Logic diperketat: Jika db ada dan config lengkap, set connected
+      if (db && diagnostics.isFullyConfigured) {
+        setGcpStatus('connected');
+      } else {
         setGcpStatus('offline');
-        return;
       }
-      setGcpStatus('connected');
     };
 
-    // 2. Real Permission Check
     const checkPermissions = async () => {
       try {
         const result = await navigator.permissions.query({ name: 'microphone' as any });
@@ -29,8 +27,8 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       }
     };
 
-    // 3. API Key Check
-    setApiKeyStatus(!!process.env.API_KEY);
+    // FIX: Gunakan import.meta.env untuk Vite
+    setApiKeyStatus(!!import.meta.env.VITE_GEMINI_API_KEY);
 
     checkGCP();
     checkPermissions();
@@ -44,7 +42,6 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       </div>
 
       <div className="glass p-12 rounded-[4rem] border border-white/5 shadow-2xl relative overflow-hidden">
-        {/* Animated Grid Background */}
         <div className="absolute inset-0 opacity-10 pointer-events-none" 
              style={{ backgroundImage: 'linear-gradient(#4f46e5 1px, transparent 1px), linear-gradient(90deg, #4f46e5 1px, transparent 1px)', backgroundSize: '40px 40px' }}></div>
         
@@ -87,52 +84,30 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Link Health Analysis</h3>
           <ul className="space-y-4">
-            <ComplianceItem 
-              label="Challenge API Handshake" 
-              status={apiKeyStatus ? 'Verified' : 'Unauthorized'} 
-              color={apiKeyStatus ? 'text-emerald-500' : 'text-red-500'}
-              icon="fa-key" 
-            />
-            <ComplianceItem 
-              label="Agentic Memory Sync" 
-              status={gcpStatus === 'connected' ? 'Cloud Linked' : 'Offline'} 
-              color={gcpStatus === 'connected' ? 'text-emerald-500' : 'text-amber-500'}
-              icon="fa-cloud" 
-            />
-            <ComplianceItem 
-              label="Multimodal Permission" 
-              status={micPermission === 'granted' ? 'Authorized' : 'Denied'} 
-              color={micPermission === 'granted' ? 'text-emerald-500' : 'text-red-500'}
-              icon="fa-microphone" 
-            />
-            <ComplianceItem 
-              label="Live Modality Engine" 
-              status="Gemini 2.5 Native" 
-              color="text-indigo-500"
-              icon="fa-wave-square" 
-            />
+            <ComplianceItem label="Challenge API Handshake" status={apiKeyStatus ? 'Verified' : 'Unauthorized'} color={apiKeyStatus ? 'text-emerald-500' : 'text-red-500'} icon="fa-key" />
+            <ComplianceItem label="Agentic Memory Sync" status={gcpStatus === 'connected' ? 'Cloud Linked' : 'Offline'} color={gcpStatus === 'connected' ? 'text-emerald-500' : 'text-amber-500'} icon="fa-cloud" />
+            <ComplianceItem label="Multimodal Permission" status={micPermission === 'granted' ? 'Authorized' : 'Denied'} color={micPermission === 'granted' ? 'text-emerald-500' : 'text-red-500'} icon="fa-microphone" />
+            <ComplianceItem label="Live Modality Engine" status="Gemini 2.5 Native" color="text-indigo-500" icon="fa-wave-square" />
           </ul>
         </div>
+
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Agentic Sequence Logs</h3>
           <div className="bg-slate-950/80 rounded-2xl p-6 font-mono text-[10px] text-emerald-500/80 space-y-2 h-[200px] overflow-y-auto custom-scrollbar shadow-inner">
-            <p className="opacity-50">[{new Date().toLocaleTimeString()}] >> INITIALIZING AGENT CHALLENGE SEQUENCE...</p>
-            {!apiKeyStatus && (
-              <p className="text-red-400">[{new Date().toLocaleTimeString()}] >> CRITICAL: Challenge Key Missing.</p>
-            )}
-            {!diagnostics.projectId && (
-              <p className="text-amber-400">[{new Date().toLocaleTimeString()}] >> MEMORY: Persistence operating in Sandbox mode.</p>
-            )}
+            {/* FIX: Menggunakan template literal {'>>'} agar esbuild tidak error */}
+            <p className="opacity-50">[{new Date().toLocaleTimeString()}] {'>>'} INITIALIZING AGENT CHALLENGE SEQUENCE...</p>
+            {!apiKeyStatus && <p className="text-red-400">[{new Date().toLocaleTimeString()}] {'>>'} CRITICAL: Challenge Key Missing.</p>}
+            {!diagnostics.projectId && <p className="text-amber-400">[{new Date().toLocaleTimeString()}] {'>>'} MEMORY: Persistence operating in Sandbox mode.</p>}
             {gcpStatus === 'connected' ? (
-              <p className="text-emerald-400">[{new Date().toLocaleTimeString()}] >> MEMORY: Neural Link Established.</p>
+              <p className="text-emerald-400">[{new Date().toLocaleTimeString()}] {'>>'} MEMORY: Neural Link Established.</p>
             ) : (
-              <p className="text-slate-500">[{new Date().toLocaleTimeString()}] >> STANDBY: Waiting for Memory handshake.</p>
+              <p className="text-slate-500">[{new Date().toLocaleTimeString()}] {'>>'} STANDBY: Waiting for Memory handshake.</p>
             )}
             <p className={auth?.currentUser ? 'text-emerald-400' : 'text-indigo-400'}>
-              [{new Date().toLocaleTimeString()}] >> IDENTITY: AGENT_LINK ... {auth?.currentUser ? 'AUTHORIZED_PARTICIPANT' : 'GUEST_AGENT'}
+              [{new Date().toLocaleTimeString()}] {'>>'} IDENTITY: AGENT_LINK ... {auth?.currentUser ? 'AUTHORIZED_PARTICIPANT' : 'GUEST_AGENT'}
             </p>
-            <p className="text-indigo-400 animate-pulse">[{new Date().toLocaleTimeString()}] >> READY: Demonstrating Multimodal Agency.</p>
-            <p className="opacity-30">[{new Date().toLocaleTimeString()}] >> LISTENING...</p>
+            <p className="text-indigo-400 animate-pulse">[{new Date().toLocaleTimeString()}] {'>>'} READY: Demonstrating Multimodal Agency.</p>
+            <p className="opacity-30">[{new Date().toLocaleTimeString()}] {'>>'} LISTENING...</p>
           </div>
         </div>
       </div>
@@ -140,6 +115,7 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   );
 };
 
+// ... (Simpan Node, SubNode, ComplianceItem lu di bawah sini, jangan diubah)
 const Node: React.FC<{ title: string; icon: string; desc: string; tags: string[]; status: 'active' | 'pending' | 'error' }> = ({ title, icon, desc, tags, status }) => (
   <div className={`p-8 rounded-[2.5rem] border transition-all duration-700 ${status === 'active' ? 'border-indigo-500/30 bg-indigo-500/5' : status === 'error' ? 'border-red-500/20 bg-red-500/5' : 'border-white/5 bg-slate-900/50'} space-y-4 text-center`}>
     <div className={`w-16 h-16 rounded-2xl mx-auto flex items-center justify-center text-2xl text-white shadow-2xl transition-colors duration-700 ${status === 'active' ? 'bg-indigo-600' : 'bg-slate-800'}`}>
