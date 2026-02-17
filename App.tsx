@@ -9,8 +9,8 @@ import OrchestratorStudio from './components/OrchestratorStudio';
 import Architecture from './components/Architecture';
 import LandingPage from './components/LandingPage';
 import { StudioTab } from './types';
-import { auth, db, GoogleCloudService } from './services/firebaseService';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth, GoogleCloudService } from './services/firebaseService';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<StudioTab>(StudioTab.ORCHESTRATOR);
@@ -36,6 +36,9 @@ const App: React.FC = () => {
     if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
+      if (currentUser) {
+        setIsLanding(false); // Auto-transition if already logged in
+      }
     });
     return () => unsubscribe();
   }, []);
@@ -79,6 +82,23 @@ const App: React.FC = () => {
     setSearchQuery('');
   };
 
+  const handleAnonymousLogin = async () => {
+    if (!auth) {
+      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await signInAnonymously(auth);
+      setIsLanding(false);
+    } catch (error: any) {
+      setAuthError(error.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleSignUp = async () => {
     if (!auth) {
       setAuthError("Auth system not initialized. Launch in Sandbox instead.");
@@ -118,6 +138,7 @@ const App: React.FC = () => {
     setForceSandbox(false);
     localStorage.removeItem('zenith_force_sandbox');
     setIsProfileModalOpen(false);
+    setIsLanding(true);
   };
 
   const toggleSandbox = () => {
@@ -154,7 +175,7 @@ const App: React.FC = () => {
   const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox;
 
   if (isLanding && (!isGCPConfigured || !user)) {
-    return <LandingPage theme={theme} onEnter={() => setIsLanding(false)} />;
+    return <LandingPage theme={theme} onEnter={() => isGCPConfigured ? handleAnonymousLogin() : setIsLanding(false)} />;
   }
 
   // If GCP is configured but user isn't logged in AND we aren't forcing sandbox mode
@@ -175,6 +196,23 @@ const App: React.FC = () => {
           )}
 
           <div className="space-y-4">
+             <button 
+              onClick={handleAnonymousLogin} 
+              disabled={authLoading}
+              className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-6 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:scale-105 transition-all shadow-xl shadow-indigo-500/20 flex flex-col items-center gap-2 active:scale-95"
+             >
+                <div className="flex items-center gap-3">
+                  <i className={`fas ${authLoading ? 'fa-circle-notch fa-spin' : 'fa-rocket'}`}></i>
+                  Enter Challenge
+                </div>
+                <span className="text-[8px] opacity-60 tracking-widest font-bold">(Google Cloud Orchestration Active)</span>
+             </button>
+
+             <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+                <div className="relative flex justify-center text-[8px] uppercase font-black text-slate-600"><span className="bg-slate-950 px-4 tracking-[0.5em]">Advanced Operator Access</span></div>
+             </div>
+
             <input 
               type="email" 
               placeholder="agent@zenith.live" 
@@ -218,7 +256,11 @@ const App: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500'}`}></div>
               <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]">
-                {isGCPConfigured ? 'Challenge Server Linked' : 'Sandbox Environment'}
+                {isGCPConfigured ? (
+                  <span className="flex items-center gap-2 text-indigo-400">
+                    Challenge Server Linked <i className="fas fa-check-circle text-[8px]"></i>
+                  </span>
+                ) : 'Sandbox Environment'}
               </span>
             </div>
             <i className="fas fa-chevron-right text-[8px] text-slate-700"></i>
@@ -281,12 +323,12 @@ const App: React.FC = () => {
             >
               <div className="text-right hidden sm:block">
                 <p className={`text-[10px] font-black uppercase tracking-tighter truncate max-w-[120px] transition-colors ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                  {user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
+                  {user?.isAnonymous ? 'Challenge Judge' : user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
                 </p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{forceSandbox ? 'Local Access' : 'Challenge Participant'}</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{forceSandbox ? 'Local Access' : 'Cloud Synchronized'}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors">
-                <i className="fas fa-user-shield text-white text-sm"></i>
+                <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'} text-white text-sm`}></i>
               </div>
             </button>
           </div>
@@ -319,24 +361,26 @@ const App: React.FC = () => {
           <div className="glass w-full max-w-lg rounded-[3rem] border border-white/10 p-12 shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative z-10 animate-in zoom-in-95 duration-500">
             <div className="flex flex-col items-center gap-8">
               <div className="w-24 h-24 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-4xl text-white shadow-2xl border border-indigo-400/30">
-                <i className="fas fa-user-shield"></i>
+                <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'}`}></i>
               </div>
               
               <div className="text-center space-y-2">
                 <h3 className="text-3xl font-black tracking-tighter uppercase italic">Agent Identity</h3>
-                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Participant Signature Verified</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">
+                  {user?.isAnonymous ? 'Anonymous Judge ID' : 'Participant Signature Verified'}
+                </p>
               </div>
 
               <div className="w-full space-y-6">
                 <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authorized Email</span>
-                    <span className="text-xs font-bold">{user?.email || (forceSandbox ? 'Local Account' : 'N/A')}</span>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authorized Entity</span>
+                    <span className="text-xs font-bold">{user?.isAnonymous ? 'Judge Access' : user?.email || 'N/A'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
                     <span className={`text-[9px] font-black uppercase tracking-widest ${isGCPConfigured ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {isGCPConfigured ? 'Challenge Native' : 'Sandbox Mode'}
+                      {isGCPConfigured ? 'Challenge Native (Cloud)' : 'Sandbox Mode (Local)'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -358,7 +402,7 @@ const App: React.FC = () => {
                     className="p-6 rounded-3xl glass border border-white/5 hover:border-red-500/30 transition-all flex flex-col items-center gap-2 group"
                   >
                     <i className="fas fa-sign-out-alt text-xl text-red-500 group-hover:scale-110 transition-transform"></i>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Terminate Link</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Terminate Session</span>
                   </button>
                 </div>
               </div>
