@@ -44,7 +44,9 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
             className="group relative px-16 py-8 rounded-[2.5rem] bg-white text-slate-950 font-black text-xl tracking-[0.4em] uppercase overflow-hidden transition-all hover:scale-110 active:scale-95 shadow-[0_30px_60px_rgba(255,255,255,0.15)]"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <span className="relative z-10 group-hover:text-white transition-colors">Launch Agent Control</span>
+            <span className="relative z-10 group-hover:text-white transition-colors flex items-center gap-4">
+              Launch Agent Control
+            </span>
           </button>
           <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-600">Secure Protocol Established // Gemini Agent Challenge v1.0.0</span>
         </div>

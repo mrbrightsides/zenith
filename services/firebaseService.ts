@@ -23,7 +23,7 @@ export const getFirebaseDiagnostics = () => {
     projectId: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
     apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    isFullyConfigured: !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY && !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && !!import.meta.env.VITE_FIREBASE_STORAGE_BUCKET && !!import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID && !!import.meta.env.VITE_FIREBASE_APP_ID && !!import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    isFullyConfigured: !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY && !!import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
   };
 };
 
@@ -49,8 +49,8 @@ export class GoogleCloudService {
   }
 
   static async saveCampaign(goal: string, narrative: string, imageUrl: string, videoUrl: string) {
+    // If not logged in or cloud not configured, fallback to local immediately
     if (!this.isConfigured() || !auth?.currentUser) {
-      console.warn("GCP Persistence: Firestore not connected or user not logged in. Falling back to Local Storage.");
       this.saveToLocal(goal, narrative, imageUrl, videoUrl);
       return null;
     }
@@ -69,7 +69,7 @@ export class GoogleCloudService {
       console.error("GCP Cloud Save Error:", error);
       // Even on cloud error, save locally as a safety measure
       this.saveToLocal(goal, narrative, imageUrl, videoUrl);
-      throw error;
+      return null;
     }
   }
 
@@ -80,6 +80,7 @@ export class GoogleCloudService {
   }
 
   static async getCampaigns() {
+    // Attempt cloud fetch, otherwise return local
     if (!this.isConfigured() || !auth?.currentUser) {
       const local = JSON.parse(localStorage.getItem('zenith_campaign_fallback') || '[]');
       return [...local].reverse();
@@ -99,7 +100,6 @@ export class GoogleCloudService {
       }));
     } catch (error) {
       console.error("GCP Cloud Fetch Error:", error);
-      // Fallback to local on cloud fetch failure
       const local = JSON.parse(localStorage.getItem('zenith_campaign_fallback') || '[]');
       return [...local].reverse();
     }

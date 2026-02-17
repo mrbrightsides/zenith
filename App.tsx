@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import TextStudio from './components/TextStudio';
 import ImageStudio from './components/ImageStudio';
@@ -10,18 +10,14 @@ import Architecture from './components/Architecture';
 import LandingPage from './components/LandingPage';
 import { StudioTab } from './types';
 import { auth, GoogleCloudService } from './services/firebaseService';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInAnonymously } from 'firebase/auth';
+import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<StudioTab>(StudioTab.ORCHESTRATOR);
   const [user, setUser] = useState<any>(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLanding, setIsLanding] = useState(true);
-  const [authLoading, setAuthLoading] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [forceSandbox, setForceSandbox] = useState(() => localStorage.getItem('zenith_force_sandbox') === 'true');
-  const [authError, setAuthError] = useState<string | null>(null);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,14 +28,27 @@ const App: React.FC = () => {
     (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   );
 
+  // Background Auth Handshake
   useEffect(() => {
     if (!auth) return;
+    
+    // Listen for auth state
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser) {
-        setIsLanding(false); // Auto-transition if already logged in
-      }
     });
+
+    // Attempt background anonymous login if not logged in
+    const backgroundAuth = async () => {
+      try {
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
+      } catch (e) {
+        console.warn("Background Cloud Link failed. Operating in Resilient Sandbox mode.");
+      }
+    };
+    backgroundAuth();
+
     return () => unsubscribe();
   }, []);
 
@@ -80,55 +89,6 @@ const App: React.FC = () => {
     setActiveTab(item.tab);
     setIsSearchOpen(false);
     setSearchQuery('');
-  };
-
-  const handleAnonymousLogin = async () => {
-    if (!auth) {
-      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
-      return;
-    }
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await signInAnonymously(auth);
-      setIsLanding(false);
-    } catch (error: any) {
-      setAuthError(error.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleSignUp = async () => {
-    if (!auth) {
-      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
-      return;
-    }
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await createUserWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
-      setAuthError(error.message);
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleLogin = async () => {
-    if (!auth) {
-      setAuthError("Auth system not initialized. Launch in Sandbox instead.");
-      return;
-    }
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
-      setAuthError(error.message);
-    } finally {
-      setAuthLoading(false);
-    }
   };
 
   const handleLogout = async () => {
@@ -172,78 +132,10 @@ const App: React.FC = () => {
     }
   };
 
-  const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox;
+  const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox && !!user;
 
-  if (isLanding && (!isGCPConfigured || !user)) {
-    return <LandingPage theme={theme} onEnter={() => isGCPConfigured ? handleAnonymousLogin() : setIsLanding(false)} />;
-  }
-
-  // If GCP is configured but user isn't logged in AND we aren't forcing sandbox mode
-  if (isGCPConfigured && !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-slate-950">
-        <div className="glass p-12 rounded-[3rem] w-full max-w-md border border-white/10 space-y-8 animate-in fade-in zoom-in-95 duration-500 shadow-2xl">
-          <div className="text-center space-y-2">
-            <h2 className="text-3xl font-black text-white italic">Neural Portal</h2>
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Identity Verification Protocol</p>
-          </div>
-
-          {authError && (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-[11px] text-red-400 font-medium animate-in slide-in-from-top-2">
-              <i className="fas fa-exclamation-circle mr-2"></i>
-              {authError}
-            </div>
-          )}
-
-          <div className="space-y-4">
-             <button 
-              onClick={handleAnonymousLogin} 
-              disabled={authLoading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-6 rounded-2xl font-black text-[11px] uppercase tracking-[0.3em] hover:scale-105 transition-all shadow-xl shadow-indigo-500/20 flex flex-col items-center gap-2 active:scale-95"
-             >
-                <div className="flex items-center gap-3">
-                  <i className={`fas ${authLoading ? 'fa-circle-notch fa-spin' : 'fa-rocket'}`}></i>
-                  Enter Challenge
-                </div>
-                <span className="text-[8px] opacity-60 tracking-widest font-bold">(Google Cloud Orchestration Active)</span>
-             </button>
-
-             <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
-                <div className="relative flex justify-center text-[8px] uppercase font-black text-slate-600"><span className="bg-slate-950 px-4 tracking-[0.5em]">Advanced Operator Access</span></div>
-             </div>
-
-            <input 
-              type="email" 
-              placeholder="agent@zenith.live" 
-              className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <input 
-              type="password" 
-              placeholder="••••••••" 
-              className="w-full bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-4">
-            <button onClick={handleLogin} disabled={authLoading} className="flex-1 bg-white text-slate-950 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all active:scale-95 disabled:opacity-50">Authorize</button>
-            <button onClick={handleSignUp} disabled={authLoading} className="flex-1 bg-slate-800 text-white py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50">Create ID</button>
-          </div>
-          <div className="text-center pt-4 space-y-6">
-             <button 
-              onClick={() => { toggleSandbox(); setIsLanding(false); }} 
-              className="w-full py-4 border border-indigo-500/30 text-indigo-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/10 transition-all active:scale-95"
-             >
-                Launch Sandbox Mode (Local Storage Only)
-             </button>
-             <button onClick={() => setIsLanding(true)} className="text-[10px] text-slate-600 uppercase tracking-widest hover:text-slate-400 block w-full">Return to Surface</button>
-          </div>
-        </div>
-      </div>
-    );
+  if (isLanding) {
+    return <LandingPage theme={theme} onEnter={() => setIsLanding(false)} />;
   }
 
   return (
@@ -325,7 +217,7 @@ const App: React.FC = () => {
                 <p className={`text-[10px] font-black uppercase tracking-tighter truncate max-w-[120px] transition-colors ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                   {user?.isAnonymous ? 'Challenge Judge' : user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
                 </p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{forceSandbox ? 'Local Access' : 'Cloud Synchronized'}</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{isGCPConfigured ? 'Cloud Synchronized' : 'Local Access'}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors">
                 <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'} text-white text-sm`}></i>
@@ -375,7 +267,7 @@ const App: React.FC = () => {
                 <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authorized Entity</span>
-                    <span className="text-xs font-bold">{user?.isAnonymous ? 'Judge Access' : user?.email || 'N/A'}</span>
+                    <span className="text-xs font-bold">{user?.isAnonymous ? 'Judge Access' : user?.email || 'Guest Session'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
@@ -385,7 +277,7 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Agent UID</span>
-                    <span className="text-[8px] font-mono opacity-50">{user?.uid || 'LOCAL_AGENT_SANDBOX'}</span>
+                    <span className="text-[8px] font-mono opacity-50">{user?.uid || 'LOCAL_GUEST_ID'}</span>
                   </div>
                 </div>
 
@@ -402,7 +294,7 @@ const App: React.FC = () => {
                     className="p-6 rounded-3xl glass border border-white/5 hover:border-red-500/30 transition-all flex flex-col items-center gap-2 group"
                   >
                     <i className="fas fa-sign-out-alt text-xl text-red-500 group-hover:scale-110 transition-transform"></i>
-                    <span className="text-[9px] font-black uppercase tracking-widest">Terminate Session</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest">Reset Session</span>
                   </button>
                 </div>
               </div>
