@@ -15,6 +15,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [transcriptions, setTranscriptions] = useState<{ role: string; text: string; id: number; timestamp: string }[]>([]);
   const [status, setStatus] = useState('Ready to Link');
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState('Zephyr');
   const [selectedAvatar, setSelectedAvatar] = useState(AVATAR_STYLES[0]);
   const [customGlowColor, setCustomGlowColor] = useState(AVATAR_STYLES[0].glow);
@@ -85,15 +86,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       const lookY = dy * 5;
 
       // --- Enhanced Dynamic Background Gradient ---
-      // We create a more complex radial gradient that shifts color stops and radius based on energy.
       const auraRad = (canvas.width / 1.5) * (1 + totalEnergy * 0.5);
       const grad = ctx.createRadialGradient(centerX + lookX, centerY + lookY, 0, centerX, centerY, auraRad);
       
-      // Calculate a dynamic color shift: interpolate between theme color and a high-intensity highlight
-      const intensityScale = Math.min(1, totalEnergy * 2.5 + (isPinging ? 0.4 : 0));
       const alphaLevel = Math.floor((0.15 + totalEnergy * 0.6 + (isPinging ? 0.3 : 0)) * 255).toString(16).padStart(2, '0');
       
-      // Dynamically mix the glow and theme colors for the gradient stops
       const color1 = customGlowColor; // Center glow
       const color2 = selectedAvatar.color; // Theme primary
       
@@ -105,7 +102,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // --- Subtle Idle & Action Animations ---
       const neuralPulse = Math.max(0, Math.sin(time / 500) * (time % 3000 < 500 ? 0.08 : 0));
       const breathing = Math.sin(time / 2000) * 0.03 + (isPinging ? 0.2 : 0) + neuralPulse;
       const verticalOffset = Math.sin(time / 1500) * 4;
@@ -113,7 +109,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       ctx.save();
       ctx.translate(centerX + lookX, centerY + verticalOffset + lookY);
       
-      // Loading / Thinking Indicator (Dashed rotating ring)
       if (isActive) {
         ctx.save();
         ctx.shadowBlur = isThinking ? 30 : 10;
@@ -130,7 +125,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
 
       ctx.scale(1 + breathing, 1 + breathing);
       
-      // Face Outline
       ctx.shadowBlur = (20 + totalEnergy * 70 + (isPinging ? 60 : 0)) * glowIntensity;
       ctx.shadowColor = customGlowColor;
       ctx.strokeStyle = selectedAvatar.color;
@@ -139,7 +133,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       ctx.arc(0, 0, 80 + (outputAvg * 25), 0, Math.PI * 2);
       ctx.stroke();
 
-      // Eyes
       ctx.fillStyle = customGlowColor;
       const eyeScale = (isPinging ? 1.5 : 1);
       const eyeSize = (6 + (inputAvg * 12)) * eyeScale;
@@ -163,7 +156,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
         ctx.stroke();
       }
 
-      // Mouth
       ctx.beginPath();
       const mouthW = 40 + (outputAvg * 45);
       const mouthH = 5 + (outputAvg * 65);
@@ -184,6 +176,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
 
   const handleAvatarClick = async () => {
     if (!isActive) {
+      setErrorDetails(null);
       await startSession();
       return;
     }
@@ -228,6 +221,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   const startSession = async () => {
     try {
       setStatus('Linking Agent...');
+      setErrorDetails(null);
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -292,7 +286,13 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
               setIsThinking(false);
             }
           },
-          onerror: () => { setStatus('Connection Error'); setIsActive(false); setIsThinking(false); },
+          onerror: (e) => { 
+            console.error("Live Session Error:", e);
+            setStatus('Connection Error'); 
+            setIsActive(false); 
+            setIsThinking(false);
+            setErrorDetails("Multimodal link failed. This usually indicates a regional restriction or an invalid API key. Check console for details.");
+          },
           onclose: () => { setIsActive(false); setStatus('Link Closed'); stopVision(); setIsThinking(false); }
         },
         config: {
@@ -306,8 +306,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
         }
       });
       sessionRef.current = await sessionPromise;
-    } catch (e) {
+    } catch (e: any) {
+      console.error("Session Startup Failure:", e);
       setStatus('Access Denied');
+      setErrorDetails(e.message || "The neural handshake was rejected by the server.");
     }
   };
 
@@ -371,17 +373,35 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
 
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                {!isActive && (
-                 <div className="text-center space-y-4 animate-bounce">
-                    <div className="w-20 h-20 rounded-full border-4 border-indigo-500/30 flex items-center justify-center text-white/40 text-2xl">
-                      <i className="fas fa-power-off"></i>
-                    </div>
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40">Connect Agent</p>
+                 <div className="text-center space-y-4">
+                    {errorDetails ? (
+                      <div className="space-y-4 px-12 animate-in fade-in zoom-in-95">
+                         <div className="w-16 h-16 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center text-xl mx-auto border border-red-500/30">
+                           <i className="fas fa-exclamation-triangle"></i>
+                         </div>
+                         <h4 className="text-xs font-black uppercase tracking-widest text-red-400">Handshake Failed</h4>
+                         <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                           Regional Restrictions may apply in your location (e.g. EU/UK). 
+                           <br/>Try using a <span className="text-indigo-400">VPN (Region: USA)</span> to bypass.
+                         </p>
+                         <button className="mt-4 pointer-events-auto bg-slate-900 border border-slate-800 px-6 py-2 rounded-full text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors">
+                           Retry Link
+                         </button>
+                      </div>
+                    ) : (
+                      <div className="animate-bounce">
+                        <div className="w-20 h-20 rounded-full border-4 border-indigo-500/30 flex items-center justify-center text-white/40 text-2xl">
+                          <i className="fas fa-power-off"></i>
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-white/40 mt-4">Connect Agent</p>
+                      </div>
+                    )}
                  </div>
                )}
             </div>
 
             <div className="absolute bottom-12 left-12 right-12 flex justify-between items-center pointer-events-none">
-              <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-500">{status}</span>
+              <span className={`text-[10px] font-black uppercase tracking-[0.5em] ${status === 'Access Denied' ? 'text-red-500' : 'text-slate-500'}`}>{status}</span>
               <div className="flex gap-4">
                  <div className={`w-3 h-3 rounded-full transition-all duration-300 ${isUserSpeaking ? 'bg-blue-500 shadow-[0_0_15px_#3b82f6]' : 'bg-slate-800'}`}></div>
                  <div className={`w-3 h-3 rounded-full transition-all duration-300 ${isAISpeaking || isThinking ? 'bg-purple-500 shadow-[0_0_15px_#a855f7]' : 'bg-slate-800'}`}></div>
