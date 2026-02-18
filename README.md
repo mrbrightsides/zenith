@@ -48,5 +48,14 @@ The centerpiece of the challenge submission, leveraging the **Gemini 2.5 Flash N
 
 ---
 
+## 🤖 Automated Deployment (Infrastructure as Code)
+To meet the challenge's bonus criteria, ZENITH LIVE features an automated deployment pipeline:
+
+* **CI/CD Pipeline**: Integrated with **GitHub Actions** (see `.github/workflows`) to automate builds and deployments to Vercel upon every push to the `master` branch.
+* **Automated Scripting**: Utilizing custom NPM scripts for one-click production builds and Firebase security rule deployments.
+* **Environment Synchronization**: Automatic injection of `VITE_` prefixed environment variables during the build process to ensure secure and consistent agentic operations.
+
+---
+
 *Engineered for the Gemini Live Agent Challenge 2025*  
 *Submission ID: ZENITH-LIVE-AGENT-001*
