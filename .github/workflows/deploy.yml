@@ -1,0 +1,11 @@
+name: Zenith Deployment
+on:
+  push:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and Deploy to Vercel
+        run: echo "ZENITH LIVE automated build triggered via GitHub Actions"
