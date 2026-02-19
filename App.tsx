@@ -10,6 +10,7 @@ import Architecture from './components/Architecture';
 import LandingPage from './components/LandingPage';
 import { StudioTab } from './types';
 import { auth, GoogleCloudService } from './services/firebaseService';
+import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<StudioTab>(StudioTab.ORCHESTRATOR);
@@ -31,8 +32,8 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!auth) return;
     
-    // Fix: Use compat instance method for auth state listener
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+    // Listen for auth state
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
 
@@ -40,8 +41,7 @@ const App: React.FC = () => {
     const backgroundAuth = async () => {
       try {
         if (!auth.currentUser) {
-          // Fix: Use compat instance method for anonymous sign-in
-          await auth.signInAnonymously();
+          await signInAnonymously(auth);
         }
       } catch (e) {
         console.warn("Background Cloud Link failed. Operating in Resilient Sandbox mode.");
@@ -93,8 +93,7 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     if (auth) {
-      // Fix: Use compat instance method for sign-out
-      await auth.signOut();
+      await signOut(auth);
     }
     setForceSandbox(false);
     localStorage.removeItem('zenith_force_sandbox');
@@ -148,10 +147,10 @@ const App: React.FC = () => {
           <div className="flex items-center gap-5 text-sm font-medium">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500'}`}></div>
-              <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]" title="zenithagent-eqatd7duzq-as.a.run.app">
+              <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]">
                 {isGCPConfigured ? (
                   <span className="flex items-center gap-2 text-indigo-400">
-                    zenithagent-run: ONLINE <i className="fas fa-check-circle text-[8px]"></i>
+                    Challenge Server Linked <i className="fas fa-check-circle text-[8px]"></i>
                   </span>
                 ) : 'Sandbox Environment'}
               </span>
@@ -218,7 +217,7 @@ const App: React.FC = () => {
                 <p className={`text-[10px] font-black uppercase tracking-tighter truncate max-w-[120px] transition-colors ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
                   {user?.isAnonymous ? 'Challenge Judge' : user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
                 </p>
-                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{isGCPConfigured ? 'Cloud Sync: zenithagent' : 'Local Access'}</p>
+                <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{isGCPConfigured ? 'Cloud Synchronized' : 'Local Access'}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors">
                 <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'} text-white text-sm`}></i>
@@ -271,9 +270,9 @@ const App: React.FC = () => {
                     <span className="text-xs font-bold">{user?.isAnonymous ? 'Judge Access' : user?.email || 'Guest Session'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Cloud Gateway</span>
+                    <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
                     <span className={`text-[9px] font-black uppercase tracking-widest ${isGCPConfigured ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {isGCPConfigured ? 'zenithagent-active' : 'Sandbox Mode'}
+                      {isGCPConfigured ? 'Challenge Native (Cloud)' : 'Sandbox Mode (Local)'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
