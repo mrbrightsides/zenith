@@ -263,10 +263,13 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
           }
 
         } catch (err: any) {
-          console.error("GCP Handshake Error:", err);
-          setStatus('GCP HANDSHAKE FAILED');
-          setErrorDetails(err.message || "Check Cloud Run logs for Node.js 24 errors");
-          setIsActive(false);
+          console.error("Zenith Connection Error:", err);
+          setIsHandshaking(false); 
+          setIsActive(false); 
+          setStatus('GCP Gateway Timeout');
+          setErrorDetails("The Cloud Run instance at zenithagent.a.run.app did not respond. Check your internet or backend status.");
+          
+          stopVision();
         }
       };
           onmessage: async (message) => {
@@ -295,13 +298,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
               nextStartTimeRef.current = 0;
             }
           },
-          onerror: (e) => { 
-            setIsHandshaking(false);
-            setIsActive(false); 
-            setStatus('GCP Gateway Timeout'); 
-            setErrorDetails("The Cloud Run instance at zenithagent.a.run.app did not respond. Check your internet or backend status.");
-          },
-          onclose: () => { setIsActive(false); setStatus('Link Severed'); stopVision(); }
         },
         config: {
           responseModalities: [Modality.AUDIO],
