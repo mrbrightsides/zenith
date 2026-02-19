@@ -1,7 +1,7 @@
 
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 
 // Helper to validate if a string is a real value and not a "placeholder" or "undefined" from build tools
 const isValidConfigString = (val: any) => {
@@ -23,25 +23,24 @@ export const getFirebaseDiagnostics = () => {
     projectId: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
     apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    isFullyConfigured: !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY && !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN && !!import.meta.env.VITE_FIREBASE_STORAGE_BUCKET && !!import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID && !!import.meta.env.VITE_FIREBASE_APP_ID && !!import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    isFullyConfigured: !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY && !!import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
   };
 };
 
 const diagnostics = getFirebaseDiagnostics();
 const isConfigured = diagnostics.isFullyConfigured;
 
-let app: firebase.app.App | null = null;
+let app = null;
 if (isConfigured) {
   try {
-    app = firebase.apps.length === 0 ? firebase.initializeApp(firebaseConfig) : firebase.apps[0];
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   } catch (error) {
     console.error("Firebase Init Error:", error);
   }
 }
 
-// Fix: Use compat API to resolve missing member errors
-export const auth = app ? app.auth() : null;
-export const db = app ? app.firestore() : null;
+export const auth = app ? getAuth(app) : null;
+export const db = app ? getFirestore(app) : null;
 
 export class GoogleCloudService {
   static isConfigured(): boolean {
@@ -57,14 +56,13 @@ export class GoogleCloudService {
     }
 
     try {
-      // Fix: Use compat API for firestore operations
-      const docRef = await db!.collection("campaigns").add({
+      const docRef = await addDoc(collection(db!, "campaigns"), {
         userId: auth.currentUser.uid,
         goal,
         narrative,
         imageUrl,
         videoUrl,
-        createdAt: firebase.firestore.Timestamp.now()
+        createdAt: Timestamp.now()
       });
       return docRef.id;
     } catch (error) {
@@ -89,12 +87,12 @@ export class GoogleCloudService {
     }
 
     try {
-      // Fix: Use compat API for firestore queries
-      const querySnapshot = await db!.collection("campaigns")
-        .where("userId", "==", auth.currentUser.uid)
-        .orderBy("createdAt", "desc")
-        .get();
-        
+      const q = query(
+        collection(db!, "campaigns"),
+        where("userId", "==", auth.currentUser.uid),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
