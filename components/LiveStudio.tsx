@@ -1,6 +1,5 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AudioUtils } from '../services/geminiService';
 
 const AVAILABLE_VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
@@ -175,13 +174,35 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       await startSession();
       return;
     }
+
     if (isActive) {
       setIsPinging(true);
+      setIsThinking(true);
       setTimeout(() => setIsPinging(false), 400);
-      if (sessionRef.current) {
-        sessionRef.current.sendRealtimeInput({
-          parts: [{ text: "The user just tapped your core sensor. Give a brief, intelligent greeting acknowledging our GCP Cloud Handshake is active via zenithagent.a.run.app." }]
+
+      try {
+        const response = await fetch("https://zenithagent-eqatd7duzq-as.a.run.app", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            uid: "User-ZL001",
+            message: "The user just tapped your core sensor. Give a brief, intelligent greeting acknowledging our GCP Cloud Handshake is active via zenithagent.a.run.app.",
+            sessionId: "zenith-live-v1"
+          }),
         });
+
+        const data = await response.json();
+
+        if (data.status === "ok") {
+          setTranscriptions(prev => [
+            ...prev,
+            { role: 'gemini', text: data.reply, id: Date.now(), timestamp: new Date().toISOString() }
+          ]);
+        }
+      } catch (err) {
+        console.error("Ping Failed:", err);
+      } finally {
+        setIsThinking(false);
       }
     }
   };
@@ -200,117 +221,66 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
   const stopVision = () => { if (visionIntervalRef.current) clearInterval(visionIntervalRef.current); setIsVisionActive(false); };
 
   const startSession = async () => {
+    setIsHandshaking(true);
+    setHandshakeProgress(0);
+    setStatus('Linking GCP Instance...');
+    setErrorDetails(null);
+
+    // Animasi Progress Bar
+    const interval = setInterval(() => {
+      setHandshakeProgress(p => (p >= 90 ? p : p + 5));
+    }, 100);
+
     try {
-      setIsHandshaking(true);
-      setHandshakeProgress(0);
-      setStatus('Linking GCP Instance...');
+      const startTime = performance.now();
+
+      // 1. Siapkan Mic untuk Visualizer
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      const source = inputCtx.createMediaStreamSource(stream);
+      const analyser = inputCtx.createAnalyser();
+      source.connect(analyser);
+      analyserRef.current = analyser;
+      audioContextRef.current = inputCtx; // Simpan buat output nanti
+
+      // 2. Handshake via Cloud Run
+      const response = await fetch("https://zenithagent-eqatd7duzq-as.a.run.app", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uid: "User-ZL001",
+          message: "INIT_ZENITH_HANDSHAKE",
+          sessionId: "zenith-live-v1" 
+        }),
+      });
+
+      if (!response.ok) throw new Error("GCP Gateway Rejected Connection");
+
+      const data = await response.json();
       
-      const interval = setInterval(() => {
-        setHandshakeProgress(p => {
-          if (p >= 100) { clearInterval(interval); return 100; }
-          return p + 2;
-        });
-      }, 30);
-
-      // Verify Cloud Run Availability
-      try {
-          await fetch(GCP_BACKEND_URL, { mode: 'no-cors' });
-          console.debug("GCP Backend Verified:", GCP_BACKEND_URL);
-      } catch (e) {
-          console.warn("Backend pre-check failed, continuing to direct link.");
-      }
-
-      const startSession = async () => {
-        try {
-          const startTime = performance.now();
-          setStatus('Linking via zenithagent...');
-          setErrorDetails(null);
-
-          // 1. Tetap siapkan Audio Context di Frontend (untuk visualizer)
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-          const source = inputCtx.createMediaStreamSource(stream);
-          const analyser = inputCtx.createAnalyser();
-          source.connect(analyser);
-          analyserRef.current = analyser;
-
-          // 2. GANTI TOTAL: Handshake via Cloud Run (Node.js 24)
-          const response = await fetch("https://zenithagent-eqatd7duzq-as.a.run.app", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              uid: "User-ZL001",
-              message: "INIT_ZENITH_HANDSHAKE",
-              sessionId: "zenith-live-v1" 
-            }),
-          });
-
-          const data = await response.json();
-
-          if (response.ok && data.status === "ok") {
-            // 3. Update State UI Sukses
-            setGatewayLatency(Math.round(performance.now() - startTime));
-            setIsActive(true);
-            setIsHandshaking(false);
-            setStatus('Linked via zenithagent');
-
-            setTranscriptions(prev => [
-              ...prev,
-              { role: 'gemini', text: data.reply, id: Date.now(), timestamp: new Date().toISOString() }
-            ]);
-          } else {
-            throw new Error(data.message || "Gateway rejection");
-          }
-
-        } catch (err: any) {
-          console.error("Zenith Connection Error:", err);
-          setIsHandshaking(false); 
-          setIsActive(false); 
-          setStatus('GCP Gateway Timeout');
-          setErrorDetails("The Cloud Run instance at zenithagent.a.run.app did not respond. Check your internet or backend status.");
-          
-          stopVision();
-        }
-      };
-          onmessage: async (message) => {
-            if (message.serverContent?.outputTranscription) {
-              setTranscriptions(p => [...p.slice(-20), { role: 'gemini', text: message.serverContent!.outputTranscription!.text, id: Date.now(), timestamp: new Date().toLocaleTimeString() }]);
-            } else if (message.serverContent?.inputTranscription) {
-              setTranscriptions(p => [...p.slice(-20), { role: 'user', text: message.serverContent!.inputTranscription!.text, id: Date.now(), timestamp: new Date().toLocaleTimeString() }]);
-            }
-            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (base64Audio && audioContextRef.current) {
-              setIsThinking(false);
-              const ctx = audioContextRef.current;
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-              const buffer = await AudioUtils.decodeAudioData(AudioUtils.decode(base64Audio), ctx, 24000, 1);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(outputAnalyserRef.current!);
-              source.connect(ctx.destination);
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              sourcesRef.current.add(source);
-            }
-            if (message.serverContent?.interrupted) {
-              sourcesRef.current.forEach(s => s.stop());
-              sourcesRef.current.clear();
-              nextStartTimeRef.current = 0;
-            }
-          },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } },
-          inputAudioTranscription: {},
-          outputAudioTranscription: {},
-          systemInstruction: "You are the ZENITH LIVE Agent. You are currently proxied through a Google Cloud Run backend (zenithagent.a.run.app). Acknowledge your specific infrastructure and backend capabilities if asked. You are elite, efficient, and conversational."
-        }
-      };
-      sessionRef.current = await sessionPromise;
-    } catch (e: any) {
+      // 3. Update UI Sukses
+      clearInterval(interval);
+      setHandshakeProgress(100);
+      setGatewayLatency(Math.round(performance.now() - startTime));
+      setIsActive(true);
       setIsHandshaking(false);
-      setStatus('Access Denied');
-      setErrorDetails(e.message || "The GCP Neural Link was rejected at the gateway.");
+      setStatus('Linked via zenithagent');
+
+      // Tampilkan greeting dari Gemini
+      setTranscriptions([{ 
+        role: 'gemini', 
+        text: data.reply, 
+        id: Date.now(), 
+        timestamp: new Date().toISOString() 
+      }]);
+
+    } catch (err: any) {
+      clearInterval(interval);
+      console.error("Zenith Link Error:", err);
+      setIsHandshaking(false);
+      setStatus('GCP HANDSHAKE FAILED');
+      setErrorDetails(err.message || "Cloud Run did not respond. Check backend logs.");
+      stopVision();
     }
   };
 
