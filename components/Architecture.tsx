@@ -65,12 +65,12 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">System Handshake Logs</h3>
           <div className="bg-slate-950/80 rounded-2xl p-6 font-mono text-[10px] text-emerald-500/80 space-y-2 h-[220px] overflow-y-auto custom-scrollbar shadow-inner">
-            <p className="opacity-50">[{new Date().toLocaleTimeString()}] >> INITIALIZING ARCHITECTURE...</p>
-            <p className="text-indigo-400">[{new Date().toLocaleTimeString()}] >> PROXY_ENDPOINT: zenithagent-eqatd7duzq-as.a.run.app</p>
-            <p className="text-indigo-500">[{new Date().toLocaleTimeString()}] >> CLOUD_RUN_STATUS: VERIFIED_REACHABLE</p>
-            <p className={apiKeyStatus ? 'text-emerald-400' : 'text-red-400'}>[{new Date().toLocaleTimeString()}] >> GEMINI_API_KEY: {apiKeyStatus ? 'LOADED_VIA_GCP' : 'MISSING'}</p>
-            <p className={gcpStatus === 'connected' ? 'text-emerald-400' : 'text-amber-500'}>[{new Date().toLocaleTimeString()}] >> FIRESTORE_LINK: {gcpStatus === 'connected' ? 'NATIVE_STORAGE' : 'LOCAL_ONLY'}</p>
-            <p className="text-white/40">[{new Date().toLocaleTimeString()}] >> AGENT_HANDSHAKE: READY</p>
+            <p className="opacity-50">[{new Date().toLocaleTimeString()}] {'>>'} INITIALIZING ARCHITECTURE...</p>
+            <p className="text-indigo-400">[{new Date().toLocaleTimeString()}] {'>>'} PROXY_ENDPOINT: zenithagent-eqatd7duzq-as.a.run.app</p>
+            <p className="text-indigo-500">[{new Date().toLocaleTimeString()}] {'>>'} CLOUD_RUN_STATUS: VERIFIED_REACHABLE</p>
+            <p className={apiKeyStatus ? 'text-emerald-400' : 'text-red-400'}>[{new Date().toLocaleTimeString()}] {'>>'} GEMINI_API_KEY: {apiKeyStatus ? 'LOADED_VIA_GCP' : 'MISSING'}</p>
+            <p className={gcpStatus === 'connected' ? 'text-emerald-400' : 'text-amber-500'}>[{new Date().toLocaleTimeString()}] {'>>'} FIRESTORE_LINK: {gcpStatus === 'connected' ? 'NATIVE_STORAGE' : 'LOCAL_ONLY'}</p>
+            <p className="text-white/40">[{new Date().toLocaleTimeString()}] {'>>'} AGENT_HANDSHAKE: READY</p>
           </div>
         </div>
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
