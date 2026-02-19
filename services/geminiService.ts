@@ -1,9 +1,9 @@
 
-import { GoogleGenAI, Type, GenerateContentResponse, Modality } from "@google/genai";
+import { GoogleGenerativeAI, Type, GenerateContentResponse, Modality } from "@google/generative-ai";
 
 export class GeminiService {
   private static getClient() {
-    return new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+    return new GoogleGenerativeAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
   }
 
   static async analyzeAudioToVisualPrompt(audioBase64: string, mimeType: string) {
