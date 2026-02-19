@@ -298,7 +298,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
               nextStartTimeRef.current = 0;
             }
           },
-        },
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } },
@@ -306,7 +305,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
           outputAudioTranscription: {},
           systemInstruction: "You are the ZENITH LIVE Agent. You are currently proxied through a Google Cloud Run backend (zenithagent.a.run.app). Acknowledge your specific infrastructure and backend capabilities if asked. You are elite, efficient, and conversational."
         }
-      });
+      };
       sessionRef.current = await sessionPromise;
     } catch (e: any) {
       setIsHandshaking(false);
