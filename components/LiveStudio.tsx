@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenAI, Modality } from '@google/genai';
+import { GoogleGenerativeAI, Modality } from '@google/generative-ai';
 import { AudioUtils } from '../services/geminiService';
 
 const AVAILABLE_VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
@@ -228,7 +228,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
       analyserRef.current = inputCtx.createAnalyser();
       outputAnalyserRef.current = outputCtx.createAnalyser();
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenerativeAI({ apiKey: process.env.API_KEY });
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-12-2025',
         callbacks: {
