@@ -1,5 +1,5 @@
 
-import { GoogleGenerativeAI, Type, GenerateContentResponse, Modality } from "@google/generative-ai";
+import { GoogleGenerativeAI, Type, GenerateContentResponse } from "@google/generative-ai";
 
 export class GeminiService {
   private static getClient() {

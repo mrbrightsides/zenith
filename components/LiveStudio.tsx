@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { GoogleGenerativeAI, Modality } from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AudioUtils } from '../services/geminiService';
 
 const AVAILABLE_VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
