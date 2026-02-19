@@ -57,5 +57,4 @@ To meet the challenge's bonus criteria, ZENITH LIVE features an automated deploy
 
 ---
 
-*Engineered for the Gemini Live Agent Challenge 2025*  
-*Submission ID: ZENITH-LIVE-AGENT-001*
+*Engineered for the Gemini Live Agent Challenge 2026*
