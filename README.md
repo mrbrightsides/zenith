@@ -4,6 +4,8 @@
 
 **ZENITH LIVE** is an official entry for the **Gemini Live Agent Challenge**. It demonstrates the peak of real-time multimodal agency by unifying strategic reasoning, high-fidelity visual synthesis, and low-latency voice/vision interaction into a single agentic interface.
 
+Try it out live at: https://al-qalam-2265a.web.app/
+
 ---
 
 ## ⚡ Agent Orchestrator (Multimodal Agency)
@@ -42,10 +44,10 @@ The centerpiece of the challenge submission, leveraging the **Gemini 2.5 Flash N
 ## ⚙️ Tech Stack & Topology
 
 - **Engine:** @google/genai (Gemini 3 Pro, Gemini 2.5 Flash, Veo 3.1, Imagen 3)
-- **Frontend:** React 19 (ESNext), Tailwind CSS, Canvas 2D API
+- **Frontend:** React 19 (ESNext), Tailwind CSS, Canvas 2D API. Hosted on Firebase Hosting (Google Cloud Global CDN)
 - **Persistence:** Google Cloud Firestore for agentic memory and session storage
 - **Modality Handling:** Web Audio API, Raw PCM Encoding/Decoding
-- **Backend Orchestrator:** Node.js 24 (Bleeding Edge) hosted on Google Cloud Run
+- **Backend Orchestrator:** Node.js 24 (Bleeding Edge). Google Cloud Run & Cloud Functions for Firebase
 - **Security:** Server-side execution to protect GEMINI_API_KEY using Google Cloud Secret Manager
 - **Memory Management:** State-persistent sessions via Cloud Firestore with a customized recentHistory context windowing
 
@@ -54,7 +56,7 @@ The centerpiece of the challenge submission, leveraging the **Gemini 2.5 Flash N
 ## 🤖 Automated Deployment (Infrastructure as Code)
 To meet the challenge's bonus criteria, ZENITH LIVE features an automated deployment pipeline:
 
-- **CI/CD Pipeline**: Integrated with **GitHub Actions** (see `.github/workflows`) to automate builds and deployments to Vercel upon every push to the `master` branch.
+- **CI/CD Pipeline**: Integrated with **GitHub Actions** (see `.github/workflows`). Automated deployments to Google Cloud (Firebase Hosting).
 - **Automated Scripting**: Utilizing custom NPM scripts for one-click production builds and Firebase security rule deployments.
 - **Environment Synchronization**: Automatic injection of `VITE_` prefixed environment variables during the build process to ensure secure and consistent agentic operations.
 - **Server-Side Scaling:** ZENITH LIVE utilizes Google Cloud Run (2nd Gen) with Startup CPU Boost enabled, ensuring low-latency cold starts (<2s) for generative tasks.

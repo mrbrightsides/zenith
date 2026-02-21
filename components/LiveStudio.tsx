@@ -387,7 +387,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
         setHandshakeProgress(p => (p >= 100 ? 100 : p + 4));
       }, 50);
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const inCtx = new AudioContext({ sampleRate: 16000 });
       const outCtx = new AudioContext({ sampleRate: 24000 });
@@ -405,11 +405,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
             setIsHandshaking(false);
             setStatus('Attentive (IDLE)');
             const source = inCtx.createMediaStreamSource(stream);
-            const processor = inCtx.createScriptProcessor(2048, 1, 1);
+            const processor = inCtx.createScriptProcessor(4096, 1, 1);
             processor.onaudioprocess = (e) => {
               const data = e.inputBuffer.getChannelData(0);
               const int16 = new Int16Array(data.length);
-              for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32767;
+              for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
               const blob = { data: AudioUtils.encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
               sessionPromise.then(s => s.sendRealtimeInput({ media: blob }));
             };
