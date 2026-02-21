@@ -21,3 +21,17 @@
 # Class Diagram Service Structure
 
 <img width="3935" height="3715" alt="Class Diagram Service Structure" src="https://github.com/user-attachments/assets/4de7227d-c9f2-481f-b507-fc2913c81cf9" />
+
+# Secure Gateway Pattern
+
+<img width="5426" height="5642" alt="Secure Gateway Pattern" src="https://github.com/user-attachments/assets/e5e24c92-de05-4952-8e47-c13be4a0bf39" />
+
+To ensure production-grade security for the Gemini Live Agent Challenge, ZENITH LIVE bypasses traditional client-side API calls in favor of a Secure Gateway Pattern:
+- Secret Management: All sensitive credentials, including the GEMINI_API_KEY, are never exposed to the frontend. They are stored and managed using Google Cloud Secret Manager.
+- Server-Side Execution: Multimodal reasoning and high-complexity agentic tasks are orchestrated within a protected Node.js 24 environment.
+- Data Integrity: By utilizing Cloud Functions for Firebase, every request is authenticated and validated before interacting with the Gemini API or GCP Firestore.
+
+Key Technical Specifications:
+- Runtime: Node.js 24 (Bleeding Edge) on Google Cloud Run.
+- Latency Optimization: Startup CPU Boost enabled for sub-2s cold starts.
+- Regional Deployment: asia-southeast1 (Singapore) to minimize latency for SEA-based interaction.
