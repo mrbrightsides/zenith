@@ -6,7 +6,7 @@ This document outlines the multimodal API integrations and service layer logic p
 
 ZENITH LIVE utilizes the `@google/genai` SDK to interface with multiple flagship models.
 
-### 1. Cognitive Layer (`gemini-3-pro-preview`)
+### 1. Cognitive Layer (`gemini-3.1-pro-preview`)
 Used in **Cognitive Studio** and the **Orchestrator**.
 *   **Features:** Search Grounding, 16k Thinking Budget.
 *   **Implementation:** `GeminiService.generateText()`

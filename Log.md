@@ -66,6 +66,18 @@ Note: This log documents the technical evolution, infrastructure pivots, and dep
 
 ---
 
+## 🚀 Phase 5: Model Migration & Future-Proofing
+**Timeline:** Feb 27  
+**Status:** Active | **Milestone:** Migration to Gemini 3.1 Pro
+
+**The Migration:**
+- **Issue:** Received notification regarding the discontinuation of `gemini-3-pro-preview` effective March 9, 2026.
+- **Action:** Proactively migrated the cognitive layer to **Gemini 3.1 Pro Preview** (`gemini-3.1-pro-preview`) to ensure uninterrupted service and leverage performance improvements.
+- **Impact:** Updated `geminiService.ts` and documentation to reflect the new model architecture.
+- **Type Safety:** Added `"lint": "tsc --noEmit"` to `package.json` and updated `tsconfig.json` with `vite/client` types to enable robust client-side type checking.
+
+---
+
 ## Summary of Technical Wins
 - ✅ **Zero to 100% Traffic:** Successfully stabilized Cloud Run revisions.
 - ✅ **Agentic Memory:** Confirmed context persistence via Firestore.

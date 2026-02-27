@@ -43,7 +43,7 @@ export class GeminiService {
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
+      model: 'gemini-3.1-pro-preview',
       contents: prompt,
       config
     });
@@ -108,7 +108,7 @@ export class GeminiService {
       }
 
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-      const response = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+      const response = await fetch(`${downloadLink}&key=${import.meta.env.VITE_GEMINI_API_KEY}`);
       const blob = await response.blob();
       return URL.createObjectURL(blob);
     } catch (error: any) {

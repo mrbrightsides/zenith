@@ -10,7 +10,8 @@
     "deploy:gcp": "vite build && firebase deploy --only hosting", 
     "deploy:prod": "vite build && vercel --prod",
     "deploy:rules": "firebase deploy --only firestore:rules",
-    "zenith-sync": "npm run deploy:prod && npm run deploy:rules"
+    "zenith-sync": "npm run deploy:prod && npm run deploy:rules",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.42.0",
