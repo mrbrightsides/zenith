@@ -11,8 +11,17 @@ import LandingPage from './components/LandingPage';
 import { StudioTab } from './types';
 import { auth, GoogleCloudService } from './services/firebaseService';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
+import { useAuth0 } from "@auth0/auth0-react";
 
 const App: React.FC = () => {
+  const {
+    isLoading: isAuth0Loading,
+    isAuthenticated: isAuth0Authenticated,
+    user: auth0User,
+    loginWithRedirect,
+    logout: auth0Logout,
+  } = useAuth0();
+
   const [activeTab, setActiveTab] = useState<StudioTab>(StudioTab.ORCHESTRATOR);
   const [user, setUser] = useState<any>(null);
   const [isLanding, setIsLanding] = useState(true);
@@ -95,6 +104,7 @@ const App: React.FC = () => {
     if (auth) {
       await signOut(auth);
     }
+    auth0Logout({ logoutParams: { returnTo: window.location.origin } });
     setForceSandbox(false);
     localStorage.removeItem('zenith_force_sandbox');
     setIsProfileModalOpen(false);
@@ -132,10 +142,21 @@ const App: React.FC = () => {
     }
   };
 
-  const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox && !!user;
+  const isGCPConfigured = GoogleCloudService.isConfigured() && !forceSandbox && (!!user || isAuth0Authenticated);
+
+  if (isAuth0Loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-full border-4 border-t-indigo-500 border-indigo-500/20 animate-spin"></div>
+          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-indigo-500 animate-pulse">Synchronizing Agent Identity...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLanding) {
-    return <LandingPage theme={theme} onEnter={() => setIsLanding(false)} />;
+    return <LandingPage theme={theme} onEnter={() => isAuth0Authenticated ? setIsLanding(false) : loginWithRedirect()} />;
   }
 
   return (
@@ -215,12 +236,16 @@ const App: React.FC = () => {
             >
               <div className="text-right hidden sm:block">
                 <p className={`text-[10px] font-black uppercase tracking-tighter truncate max-w-[120px] transition-colors ${theme === 'light' ? 'text-slate-900' : 'text-white'}`}>
-                  {user?.isAnonymous ? 'Challenge Judge' : user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent')}
+                  {isAuth0Authenticated ? auth0User?.name : (user?.isAnonymous ? 'Challenge Judge' : user?.email || (forceSandbox ? 'Sandbox Agent' : 'Guest Agent'))}
                 </p>
                 <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{isGCPConfigured ? 'Cloud Synchronized' : 'Local Access'}</p>
               </div>
-              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors">
-                <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'} text-white text-sm`}></i>
+              <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg border border-indigo-400/30 group-hover:border-indigo-400 transition-colors overflow-hidden">
+                {isAuth0Authenticated && auth0User?.picture ? (
+                  <img src={auth0User.picture} alt={auth0User.name} className="w-full h-full object-cover" />
+                ) : (
+                  <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'} text-white text-sm`}></i>
+                )}
               </div>
             </button>
           </div>
@@ -252,14 +277,18 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsProfileModalOpen(false)}></div>
           <div className="glass w-full max-w-lg rounded-[3rem] border border-white/10 p-12 shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative z-10 animate-in zoom-in-95 duration-500">
             <div className="flex flex-col items-center gap-8">
-              <div className="w-24 h-24 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-4xl text-white shadow-2xl border border-indigo-400/30">
-                <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'}`}></i>
+              <div className="w-24 h-24 rounded-[2rem] bg-indigo-600 flex items-center justify-center text-4xl text-white shadow-2xl border border-indigo-400/30 overflow-hidden">
+                {isAuth0Authenticated && auth0User?.picture ? (
+                  <img src={auth0User.picture} alt={auth0User.name} className="w-full h-full object-cover" />
+                ) : (
+                  <i className={`fas ${user?.isAnonymous ? 'fa-user-tie' : 'fa-user-shield'}`}></i>
+                )}
               </div>
               
               <div className="text-center space-y-2">
                 <h3 className="text-3xl font-black tracking-tighter uppercase italic">Agent Identity</h3>
                 <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">
-                  {user?.isAnonymous ? 'Anonymous Judge ID' : 'Participant Signature Verified'}
+                  {isAuth0Authenticated ? 'Auth0 Verified Identity' : (user?.isAnonymous ? 'Anonymous Judge ID' : 'Participant Signature Verified')}
                 </p>
               </div>
 
@@ -267,7 +296,7 @@ const App: React.FC = () => {
                 <div className="glass p-6 rounded-3xl border border-white/5 space-y-4">
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Authorized Entity</span>
-                    <span className="text-xs font-bold">{user?.isAnonymous ? 'Judge Access' : user?.email || 'Guest Session'}</span>
+                    <span className="text-xs font-bold truncate max-w-[200px]">{isAuth0Authenticated ? auth0User?.email : (user?.isAnonymous ? 'Judge Access' : user?.email || 'Guest Session')}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
