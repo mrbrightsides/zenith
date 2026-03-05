@@ -7,7 +7,9 @@ import VideoStudio from './components/VideoStudio';
 import LiveStudio from './components/LiveStudio';
 import OrchestratorStudio from './components/OrchestratorStudio';
 import Architecture from './components/Architecture';
+import VaultStudio from './components/VaultStudio';
 import LandingPage from './components/LandingPage';
+import Logo from './components/Logo';
 import { StudioTab } from './types';
 import { auth, GoogleCloudService } from './services/firebaseService';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
@@ -138,6 +140,7 @@ const App: React.FC = () => {
       case StudioTab.VIDEO: return <VideoStudio {...commonProps} onMounted={onComponentMounted} />;
       case StudioTab.LIVE: return <LiveStudio theme={theme} />;
       case StudioTab.ARCHITECTURE: return <Architecture theme={theme} />;
+      case StudioTab.VAULT: return <VaultStudio theme={theme} />;
       default: return <OrchestratorStudio {...commonProps} onMounted={onComponentMounted} />;
     }
   };
@@ -253,11 +256,14 @@ const App: React.FC = () => {
 
         <div className="p-10 pb-20 relative z-10">
           <div className="mb-16 animate-in fade-in slide-in-from-left-6 duration-1000">
-            <h1 className="text-6xl font-black tracking-tighter text-white flex items-center gap-6">
-              ZENITH LIVE
-              <div className="h-px flex-1 bg-gradient-to-r from-indigo-500/40 to-transparent"></div>
-              <span className="text-[10px] font-black uppercase tracking-[1em] text-indigo-500/40">Challenge v1.0.0</span>
-            </h1>
+            <div className="flex items-center gap-6">
+              <Logo size={80} />
+              <h1 className="text-6xl font-black tracking-tighter text-white flex-1 flex items-center gap-6">
+                ZENITH LIVE
+                <div className="h-px flex-1 bg-gradient-to-r from-indigo-500/40 to-transparent"></div>
+                <span className="text-[10px] font-black uppercase tracking-[1em] text-indigo-500/40">Challenge v1.0.0</span>
+              </h1>
+            </div>
           </div>
           
           <div className="animate-in fade-in zoom-in-95 duration-1000 delay-200">

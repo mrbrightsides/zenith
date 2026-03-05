@@ -1,5 +1,6 @@
 
 import React from 'react';
+import Logo from './Logo';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -21,9 +22,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
       {/* Hero Section */}
       <div className="relative z-10 max-w-6xl w-full text-center space-y-12 py-20">
         <div className="flex flex-col items-center gap-6 animate-in fade-in slide-in-from-top-12 duration-1000">
-          <div className="w-24 h-24 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-5xl font-black text-white shadow-[0_0_60px_rgba(79,70,229,0.5)] mb-4">
-            <i className="fas fa-microchip animate-pulse"></i>
-          </div>
+          <Logo size={120} className="mb-4" />
           <div className="space-y-4">
             <h1 className="text-8xl font-black tracking-tighter leading-none">
               ZENITH <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">LIVE</span>

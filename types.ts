@@ -5,7 +5,8 @@ export enum StudioTab {
   VIDEO = 'video',
   LIVE = 'live',
   ORCHESTRATOR = 'orchestrator',
-  ARCHITECTURE = 'architecture'
+  ARCHITECTURE = 'architecture',
+  VAULT = 'vault'
 }
 
 export interface GeneratedAsset {

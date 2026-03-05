@@ -32,10 +32,21 @@ export class GeminiService {
     }
   }
 
+  static async requestVaultToken(service: string) {
+    // In a real implementation, this would call the Auth0 Token Vault API.
+    // For the hackathon demo, we simulate the secure handshake.
+    console.log(`[VAULT] Initiating secure handshake for ${service}...`);
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    const mockToken = `atv_${service.toLowerCase()}_${Math.random().toString(36).substring(7)}`;
+    console.log(`[VAULT] Token acquired: ${mockToken.substring(0, 8)}...`);
+    return mockToken;
+  }
+
   static async generateText(prompt: string, useSearch: boolean = false) {
     const ai = this.getClient();
     const config: any = {
-      thinkingConfig: { thinkingBudget: 16384 }
+      thinkingConfig: { thinkingBudget: 16384 },
+      systemInstruction: "You are ZENITH, a world-class AI Orchestrator and Authorized Intermediary. You have access to the Auth0 Token Vault to securely interact with third-party services (GitHub, Google, Spotify) on behalf of the user. Always prioritize security and user consent."
     };
 
     if (useSearch) {
