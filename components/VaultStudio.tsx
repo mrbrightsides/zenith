@@ -9,11 +9,32 @@ interface VaultStudioProps {
 const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
   const { user, isAuthenticated, loginWithRedirect } = useAuth0();
   const [isRequesting, setIsRequesting] = useState(false);
-  const [connections, setConnections] = useState([
-    { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago', connection: 'github' },
-    { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never', connection: 'google-oauth2' },
-    { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never', connection: 'spotify' },
-  ]);
+  
+  const [connections, setConnections] = useState(() => {
+    const saved = localStorage.getItem('zenith_vault_connections');
+    if (saved) return JSON.parse(saved);
+    
+    return [
+      { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago', connection: 'github' },
+      { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never', connection: 'google-oauth2' },
+      { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never', connection: 'spotify' },
+    ];
+  });
+
+  // Persist changes
+  React.useEffect(() => {
+    localStorage.setItem('zenith_vault_connections', JSON.stringify(connections));
+  }, [connections]);
+
+  // Auto-authorize if we return authenticated
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      // If we are authenticated, we assume the pending connection (usually Google in this demo flow) is now authorized
+      setConnections(prev => prev.map(c => 
+        (c.id === 'google' && c.status === 'pending') ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c
+      ));
+    }
+  }, [isAuthenticated]);
 
   const handleAuthorize = (id: string, connection?: string) => {
     if (connection) {
@@ -149,18 +170,29 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
           <div className="glass rounded-[2.5rem] border border-white/10 p-8 space-y-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Audit Trail</h3>
             <div className="space-y-4 font-mono text-[9px]">
-              <div className="flex gap-3 text-slate-500">
-                <span className="text-indigo-400">[10:42:01]</span>
-                <span>GITHUB_TOKEN_REQUESTED</span>
-              </div>
-              <div className="flex gap-3 text-slate-500">
-                <span className="text-indigo-400">[10:42:02]</span>
-                <span className="text-emerald-400">AUTH0_VAULT_HANDSHAKE_OK</span>
-              </div>
-              <div className="flex gap-3 text-slate-500">
-                <span className="text-indigo-400">[10:45:12]</span>
-                <span>CALENDAR_CONSENT_PENDING</span>
-              </div>
+              {connections.filter(c => c.status === 'authorized').map((c, idx) => (
+                <React.Fragment key={c.id}>
+                  <div className="flex gap-3 text-slate-500">
+                    <span className="text-indigo-400">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                    <span>{c.id.toUpperCase()}_TOKEN_REQUESTED</span>
+                  </div>
+                  <div className="flex gap-3 text-slate-500">
+                    <span className="text-indigo-400">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                    <span className="text-emerald-400">AUTH0_VAULT_HANDSHAKE_OK</span>
+                  </div>
+                </React.Fragment>
+              ))}
+              {connections.some(c => c.status === 'pending') && (
+                <div className="flex gap-3 text-slate-500">
+                  <span className="text-indigo-400">[{new Date().toLocaleTimeString([], { hour12: false })}]</span>
+                  <span className="text-amber-400">CONSENT_PENDING_USER_ACTION</span>
+                </div>
+              )}
+              {connections.every(c => c.status === 'disconnected') && (
+                <div className="flex gap-3 text-slate-500 italic opacity-50">
+                  <span>No active handshakes recorded...</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
