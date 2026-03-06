@@ -7,15 +7,25 @@ interface VaultStudioProps {
 }
 
 const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
-  const { user, isAuthenticated } = useAuth0();
+  const { user, isAuthenticated, loginWithRedirect } = useAuth0();
   const [isRequesting, setIsRequesting] = useState(false);
   const [connections, setConnections] = useState([
-    { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago' },
-    { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never' },
-    { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never' },
+    { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago', connection: 'github' },
+    { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never', connection: 'google-oauth2' },
+    { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never', connection: 'spotify' },
   ]);
 
-  const handleAuthorize = (id: string) => {
+  const handleAuthorize = (id: string, connection?: string) => {
+    if (connection) {
+      loginWithRedirect({
+        authorizationParams: {
+          connection: connection,
+          prompt: 'consent'
+        }
+      });
+      return;
+    }
+    
     setIsRequesting(true);
     setTimeout(() => {
       setConnections(prev => prev.map(c => c.id === id ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c));
@@ -95,7 +105,7 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
                     </div>
                     <button 
                       disabled={isRequesting}
-                      onClick={() => conn.status === 'authorized' ? handleDisconnect(conn.id) : handleAuthorize(conn.id)}
+                      onClick={() => conn.status === 'authorized' ? handleDisconnect(conn.id) : handleAuthorize(conn.id, conn.connection)}
                       className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                         conn.status === 'authorized' ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 
                         isRequesting ? 'bg-slate-800 text-slate-600 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
