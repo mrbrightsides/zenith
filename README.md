@@ -61,5 +61,55 @@ A personalized start to your day:
 
 ---
 
+## 🧪 Reproducible Testing Instructions
+
+To verify the multimodal and agentic capabilities of **ZENITH LIVE**, follow these steps:
+
+### 1. Environment Setup
+Clone the repository and create a `.env` file based on `.env.example`. You will need:
+- **Gemini API Key:** From [Google AI Studio](https://aistudio.google.com/).
+- **Auth0 Tenant:** For identity and the "Authorized to Act" flow.
+- **Firebase Project:** For agentic memory persistence.
+
+### 2. Installation & Startup
+```bash
+npm install
+npm run dev
+```
+The application will be available at `http://localhost:8080`.
+
+### 3. Testing Key Modalities
+
+#### 🎙️ Live Modality (Live Studio)
+1. Navigate to the **Live Studio** tab.
+2. Click the **Neural Core** (the pulsing center) to initialize the handshake.
+3. Grant microphone and camera permissions.
+4. **Test Voice:** Say "Hello Zenith, can you hear me?" and wait for the low-latency response.
+5. **Test Vision:** Show an object to your camera and ask "What am I holding?".
+
+#### 🛡️ Authorized Agency (Vault Studio)
+1. Navigate to **Vault Studio**.
+2. Click **Login** to authenticate via Auth0.
+3. Once logged in, click **"Connect GitHub"** or **"Connect Google"**.
+4. Verify that the agent successfully acquires a scoped token (displayed in the Vault HUD).
+5. Ask the agent: "Check my latest GitHub issues" to verify the "Authorized to Act" flow.
+
+#### 🤝 Collaborative Presence (Trust Circle)
+1. Open the application in **two different browser tabs** (or two different browsers).
+2. Log in with different accounts (or one as guest).
+3. Observe the **Trust Circle** HUD in the bottom corner.
+4. Verify that both "Agents" (users) appear in real-time and show interaction pulses when one speaks to the AI.
+
+#### 🧠 Neural Governance (Governance Studio)
+1. Navigate to **Governance Studio**.
+2. View the **Relationship Tuples** visualization.
+3. Verify that the agent's permissions (e.g., `operator:can_read_repo`) are correctly mapped and enforced by the OpenFGA logic.
+
+#### 🎬 Morning Briefing
+1. On your first login of the day, the **Morning Briefing** modal will trigger automatically.
+2. Observe the **Veo 3.1** generated cinematic summary of your digital delta.
+
+---
+
 *Engineered for the Gemini Live Agent Challenge and Auth0*
 *Engineered by mrbrightsides*

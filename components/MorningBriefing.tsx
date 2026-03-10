@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth0 } from "@auth0/auth0-react";
-import { GoogleGenAI } from "@google/genai";
+import { GeminiService } from '../services/geminiService';
 
 interface MorningBriefingProps {
   theme: 'dark' | 'light';
@@ -33,23 +33,26 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
     // 1. Simulate Cognitive Analysis of GitHub/Google
     await new Promise(r => setTimeout(r, 2000));
     
-    // 2. Generate Summary via Gemini
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Generate a 2-sentence morning briefing for ${user?.name}. 
+    // 2. Generate Summary via Proxied Gemini Service
+    try {
+      const prompt = `Generate a 2-sentence morning briefing for ${user?.name}. 
       Mention that 3 GitHub issues are pending review and a pair-programming session is scheduled for 2 PM.
-      Keep it professional and agentic.`
-    });
-    setSummary(response.text || 'Briefing analysis complete.');
+      Keep it professional and agentic.`;
+      
+      const response = await GeminiService.generateText(prompt);
+      setSummary(response.text || 'Briefing analysis complete.');
+    } catch (err) {
+      console.error("Briefing generation failed:", err);
+      setSummary("Welcome back. Your agentic workspace is ready for orchestration.");
+    }
 
     setStatus('generating');
     
     // 3. Simulate Veo 3.1 Video Generation
-    // In a real app, we would call ai.models.generateVideos
+    // In a real app, we would call GeminiService.generateVideo
     // For this demo, we'll use a high-quality cinematic placeholder
     await new Promise(r => setTimeout(r, 3000));
-    setVideoUrl('https://cdn.pixabay.com/video/2023/10/20/185834-876793757_large.mp4');
+    setVideoUrl('https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
     
     setStatus('ready');
   };

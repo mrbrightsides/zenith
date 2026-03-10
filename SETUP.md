@@ -1,16 +1,15 @@
 # 🛠️ ZENITH LIVE | Setup Guide
 
-This guide will walk you through the process of deploying and running the **ZENITH LIVE** agentic orchestrator in your local or cloud environment.
+This guide will walk you through the process of deploying and running the **ZENITH LIVE** agentic orchestrator.
 
 ## 📋 Prerequisites
 
 Before you begin, ensure you have the following ready:
 
-1.  **Google AI Studio API Key:** Obtain from [Google AI Studio](https://aistudio.google.com/). Ensure you have access to Gemini 3 and 2.5 series models.
-2.  **Firebase Project:** Create a project in the [Firebase Console](https://console.firebase.google.com/).
-    *   Enable **Firestore Database** in test mode.
-    *   Enable **Anonymous Authentication**.
-3.  **Development Environment:** Node.js (v18+) and an ESM-capable browser.
+1.  **Google AI Studio API Key:** Obtain from [Google AI Studio](https://aistudio.google.com/).
+2.  **Auth0 Account:** Create a tenant and a "Single Page Application" for the frontend, and configure Social Connections (GitHub/Google).
+3.  **Firebase Project:** Enable **Firestore** and **Anonymous Auth**.
+4.  **Development Environment:** Node.js (v20+) and an ESM-capable browser.
 
 ## 🚀 Local Installation
 
@@ -21,19 +20,9 @@ Before you begin, ensure you have the following ready:
     ```
 
 2.  **Environment Configuration:**
-    Create a `.env` file in the root directory and populate it with your specific credentials:
-
-    ```env
-    # Google AI Studio
-    API_KEY=your_gemini_api_key_here
-
-    # Firebase Configuration
-    FIREBASE_API_KEY=your_fb_api_key
-    FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-    FIREBASE_PROJECT_ID=your-project-id
-    FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-    FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-    FIREBASE_APP_ID=your_app_id
+    Copy `.env.example` to `.env` and populate it with your credentials:
+    ```bash
+    cp .env.example .env
     ```
 
 3.  **Install Dependencies:**
@@ -45,17 +34,23 @@ Before you begin, ensure you have the following ready:
     ```bash
     npm run dev
     ```
+    The app runs on a custom Express server with Vite middleware on port 8080.
 
-## 🌐 Deployment (Vercel)
+## 🌐 Deployment (Google Cloud Run)
 
-ZENITH LIVE is optimized for Vercel deployment.
+ZENITH LIVE is optimized for **Google Cloud Run**.
 
-1.  Push your code to GitHub.
-2.  Connect your repository to [Vercel](https://vercel.com/).
-3.  Import the environment variables from your `.env` file into the Vercel Project Settings.
-4.  Deploy. The live app will be accessible at your-project.vercel.app.
+1.  **Build the Container:**
+    ```bash
+    gcloud builds submit --tag gcr.io/[PROJECT_ID]/zenith
+    ```
 
-**Live Demo Reference:** [zenith-live.vercel.app](https://zenith-live.vercel.app)
+2.  **Deploy to Cloud Run:**
+    ```bash
+    gcloud run deploy zenith --image gcr.io/[PROJECT_ID]/zenith --platform managed --region asia-southeast1 --allow-unauthenticated
+    ```
+
+3.  **Secrets:** Use **Google Cloud Secret Manager** to store `VITE_GEMINI_API_KEY` and other sensitive variables.
 
 ## ⚠️ Regional Note
-The Gemini Multimodal Live API may have regional restrictions (e.g., UK/EEA). If you encounter "Handshake Failed" errors in the Live Studio, ensure you are testing from a supported region or use a VPN directed to the USA.
+The Gemini Multimodal Live API may have regional restrictions. If you encounter "Handshake Failed" errors, ensure you are testing from a supported region.

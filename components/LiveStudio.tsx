@@ -3,8 +3,16 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { AudioUtils } from '../services/geminiService';
 
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 const AVAILABLE_VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir'];
-const GCP_BACKEND_URL = 'https://zenithagent-eqatd7duzq-as.a.run.app/';
 
 const INITIAL_AVATAR_STYLES = [
   { id: 'core', label: 'Neural Core', color: '#3b82f6', secondary: '#06b6d4', glow: '#60a5fa', personality: 'Analytical & Calm', gradient: 'from-blue-600 to-cyan-400' },
@@ -42,7 +50,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   const [activeUserText, setActiveUserText] = useState('');
   const [activeModelText, setActiveModelText] = useState('');
   
-  const [status, setStatus] = useState('Checking Cloud...');
+  const [status, setStatus] = useState('Checking Neural Link...');
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [selectedVoice, setSelectedVoice] = useState('Zephyr');
   
@@ -95,11 +103,12 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
     const verifyBackend = async () => {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        await fetch(GCP_BACKEND_URL, { mode: 'no-cors', signal: controller.signal });
-        clearTimeout(timeoutId);
-        setStatus('GCP Instance Verified');
+        const response = await fetch('/api/config');
+        if (response.ok) {
+          setStatus('Neural Link Ready');
+        } else {
+          setStatus('Local Link Ready');
+        }
       } catch (e) {
         setStatus('Local Link Ready');
       }
@@ -392,7 +401,41 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
         setHandshakeProgress(p => (p >= 100 ? 100 : p + 4));
       }, 50);
 
-      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
+      // Check for API Key (either from env, platform dialog, or server config)
+      let apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env as any).API_KEY;
+      
+      // If no env key, check if user has selected one via the platform
+      if (!apiKey && window.aistudio) {
+        try {
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          if (!hasKey) {
+            setStatus('Awaiting API Key...');
+            await window.aistudio.openSelectKey();
+          }
+          apiKey = (process.env as any).API_KEY;
+        } catch (err) {
+          console.warn("Platform key selection failed, falling back to server config:", err);
+        }
+      }
+
+      // If still no key, try fetching from server config
+      if (!apiKey) {
+        try {
+          const response = await fetch('/api/config');
+          if (response.ok) {
+            const config = await response.json();
+            apiKey = config.geminiApiKey;
+          }
+        } catch (err) {
+          console.warn("Server config fetch failed:", err);
+        }
+      }
+
+      if (!apiKey) {
+        throw new Error("Gemini API Key is required for the Live Protocol. Please set GEMINI_API_KEY in your Cloud Run environment or select a key via the platform.");
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const inCtx = new AudioContext({ sampleRate: 16000 });
       const outCtx = new AudioContext({ sampleRate: 24000 });
@@ -403,7 +446,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       outputAnalyserRef.current = outCtx.createAnalyser();
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         callbacks: {
           onopen: () => {
             setIsActive(true);
@@ -462,7 +505,12 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               sourcesRef.current.add(source);
             }
           },
-          onerror: (e) => { setIsActive(false); setStatus('Link Interrupted'); },
+          onerror: (e) => { 
+            console.error("Live API Error:", e);
+            setIsActive(false); 
+            setStatus('Link Interrupted'); 
+            setErrorDetails("The connection was interrupted. Please check your API key and network.");
+          },
           onclose: () => { setIsActive(false); setIsAwake(false); setStatus('Protocol Terminated'); }
         },
         config: {
@@ -484,9 +532,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       });
       sessionRef.current = await sessionPromise;
     } catch (e: any) {
+      console.error("Session Start Error:", e);
       setIsHandshaking(false);
       setStatus('Signal Blocked');
-      setErrorDetails(e.message);
+      setErrorDetails(e.message || "Failed to establish neural link. Ensure your API key is valid and has billing enabled.");
     }
   };
 

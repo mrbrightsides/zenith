@@ -3,53 +3,77 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 
-// Helper to validate if a string is a real value and not a "placeholder" or "undefined" from build tools
+// Helper to validate if a string is a real value
 const isValidConfigString = (val: any) => {
   return typeof val === 'string' && val.trim() !== '' && val !== 'undefined' && val !== 'null';
 };
 
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+let firebaseApp: any = null;
+export let auth: any = null;
+export let db: any = null;
+
+// Initial diagnostics based on build-time env
+const buildTimeDiagnostics = {
+  projectId: isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  apiKey: isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY),
+  isFullyConfigured: isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID) && isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY)
+};
+
+const initFirebase = (config: any) => {
+  if (getApps().length > 0) return;
+  try {
+    firebaseApp = initializeApp(config);
+    auth = getAuth(firebaseApp);
+    db = getFirestore(firebaseApp);
+    console.log("ZENITH CLOUD: Firebase initialized successfully.");
+  } catch (error) {
+    console.error("ZENITH CLOUD: Firebase Init Error:", error);
+  }
+};
+
+// Try build-time config first
+if (buildTimeDiagnostics.isFullyConfigured) {
+  initFirebase({
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
+  });
+}
+
+// Runtime config fetcher
+export const synchronizeCloudConfig = async () => {
+  try {
+    const response = await fetch('/api/config');
+    const config = await response.json();
+    
+    if (config.isCloudConfigured && !firebaseApp) {
+      initFirebase(config.firebase);
+      return true;
+    }
+    return !!firebaseApp;
+  } catch (e) {
+    console.warn("ZENITH CLOUD: Failed to fetch runtime config.");
+    return !!firebaseApp;
+  }
 };
 
 export const getFirebaseDiagnostics = () => {
   return {
-    projectId: !!import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    apiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: !!import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    isFullyConfigured: !!import.meta.env.VITE_FIREBASE_PROJECT_ID && !!import.meta.env.VITE_FIREBASE_API_KEY && !!import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+    isConfigured: !!db && !!auth,
+    usingRuntimeConfig: !!firebaseApp && !buildTimeDiagnostics.isFullyConfigured,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'Runtime Configured'
   };
 };
 
-const diagnostics = getFirebaseDiagnostics();
-const isConfigured = diagnostics.isFullyConfigured;
-
-let app = null;
-if (isConfigured) {
-  try {
-    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  } catch (error) {
-    console.error("Firebase Init Error:", error);
-  }
-}
-
-export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
-
 export class GoogleCloudService {
   static isConfigured(): boolean {
-    // App is configured only if Firebase initialized successfully and all keys are valid
-    return !!db && !!auth && diagnostics.isFullyConfigured;
+    return !!db && !!auth;
   }
 
   static async saveCampaign(goal: string, narrative: string, imageUrl: string, videoUrl: string) {
-    // If not logged in or cloud not configured, fallback to local immediately
     if (!this.isConfigured() || !auth?.currentUser) {
       this.saveToLocal(goal, narrative, imageUrl, videoUrl);
       return null;
@@ -67,7 +91,6 @@ export class GoogleCloudService {
       return docRef.id;
     } catch (error) {
       console.error("GCP Cloud Save Error:", error);
-      // Even on cloud error, save locally as a safety measure
       this.saveToLocal(goal, narrative, imageUrl, videoUrl);
       return null;
     }
@@ -80,7 +103,6 @@ export class GoogleCloudService {
   }
 
   static async getCampaigns() {
-    // Attempt cloud fetch, otherwise return local
     if (!this.isConfigured() || !auth?.currentUser) {
       const local = JSON.parse(localStorage.getItem('zenith_campaign_fallback') || '[]');
       return [...local].reverse();
