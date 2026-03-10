@@ -18,6 +18,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme }) => 
     { id: StudioTab.VIDEO, icon: 'fa-video', label: 'Temporal Studio', tooltip: 'Veo 3.1 Cinematic Production' },
     { id: StudioTab.ARCHITECTURE, icon: 'fa-network-wired', label: 'Agentic Arch', tooltip: 'Challenge Deployment & Logic Flow' },
     { id: StudioTab.VAULT, icon: 'fa-shield-alt', label: 'Vault Studio', tooltip: 'Auth0 Token Vault: Secure Identity & API Access' },
+    { id: StudioTab.GOVERNANCE, icon: 'fa-fingerprint', label: 'Governance Studio', tooltip: 'OpenFGA: Fine-Grained Policy & Biometric Agency' },
   ];
 
   return (

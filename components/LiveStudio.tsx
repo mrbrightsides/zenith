@@ -26,9 +26,14 @@ const VISUAL_STYLES = [
 
 type AgentState = 'IDLE' | 'LISTENING' | 'THINKING' | 'RESPONDING';
 
-const LiveStudio: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
+const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: boolean) => void }> = ({ theme, onInteraction }) => {
   const [isActive, setIsActive] = useState(false);
   const [isAwake, setIsAwake] = useState(false);
+
+  useEffect(() => {
+    onInteraction?.(isActive);
+  }, [isActive]);
+
   const [isPaused, setIsPaused] = useState(false);
   const [isReacting, setIsReacting] = useState(false);
   const [agentState, setAgentState] = useState<AgentState>('IDLE');

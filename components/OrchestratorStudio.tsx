@@ -13,15 +13,20 @@ interface OrchestratorStudioProps {
   theme: 'dark' | 'light';
   initialItem?: any;
   onMounted?: () => void;
+  onInteraction?: (active: boolean) => void;
 }
 
-const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialItem, onMounted }) => {
+const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialItem, onMounted, onInteraction }) => {
   const [goal, setGoal] = useState('');
   const [useSearch, setUseSearch] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentStage, setCurrentStage] = useState<number>(0); 
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    onInteraction?.(isProcessing);
+  }, [isProcessing]);
 
   useEffect(() => {
     loadHistory();

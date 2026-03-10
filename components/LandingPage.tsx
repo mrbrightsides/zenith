@@ -33,7 +33,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
 
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
           <p className="text-2xl text-slate-400 leading-relaxed font-light">
-            Built for the <span className="text-white font-semibold">Gemini Live Agent Challenge</span>. ZENITH LIVE unifies <span className="text-white font-semibold">Gemini 3 Pro</span> and <span className="text-white font-semibold">Live Multimodal API</span> into a single, cohesive, real-time agent experience.
+            Built for the <span className="text-white font-semibold">Gemini Live Agent</span>. ZENITH LIVE unifies <span className="text-white font-semibold">Gemini 3 Pro</span> and <span className="text-white font-semibold">Live Multimodal API</span> into a single, cohesive, real-time agent experience.
           </p>
         </div>
 
@@ -87,10 +87,17 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
           color="pink"
           badge="Live Agent"
         />
+        <FeatureCard 
+          icon="fa-fingerprint" 
+          title="Neural Governance" 
+          desc="OpenFGA Fine-Grained Authorization. Policy-based agency for high-stakes digital operations."
+          color="emerald"
+          badge="Governance"
+        />
       </div>
 
       <footer className="relative z-10 py-10 opacity-30 text-[10px] font-black uppercase tracking-[0.5em] text-center">
-        ZENITH LIVE AGENT CHALLENGE © 2025 // AGENTIC INNOVATION PROTOCOL
+        ZENITH LIVE © 2026 // AGENTIC INNOVATION PROTOCOL
       </footer>
     </div>
   );

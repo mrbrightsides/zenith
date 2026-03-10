@@ -22,11 +22,17 @@ interface TextStudioProps {
   theme: 'dark' | 'light';
   initialItem?: any;
   onMounted?: () => void;
+  onInteraction?: (active: boolean) => void;
 }
 
-const TextStudio: React.FC<TextStudioProps> = ({ theme, initialItem, onMounted }) => {
+const TextStudio: React.FC<TextStudioProps> = ({ theme, initialItem, onMounted, onInteraction }) => {
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    onInteraction?.(loading);
+  }, [loading]);
+
   const [useSearch, setUseSearch] = useState(true);
   const [result, setResult] = useState<{ text: string; sources: GroundingSource[] } | null>(null);
   const [history, setHistory] = useState<TextHistoryItem[]>([]);

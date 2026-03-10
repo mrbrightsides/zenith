@@ -24,12 +24,18 @@ interface ImageStudioProps {
   theme: 'dark' | 'light';
   initialItem?: any;
   onMounted?: () => void;
+  onInteraction?: (active: boolean) => void;
 }
 
-const ImageStudio: React.FC<ImageStudioProps> = ({ theme, initialItem, onMounted }) => {
+const ImageStudio: React.FC<ImageStudioProps> = ({ theme, initialItem, onMounted, onInteraction }) => {
   const [prompt, setPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState(STYLE_TAGS[0]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    onInteraction?.(loading);
+  }, [loading]);
+
   const [image, setImage] = useState<string | null>(null);
   const [highRes, setHighRes] = useState(false);
   const [history, setHistory] = useState<ImageHistoryItem[]>([]);

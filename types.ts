@@ -6,7 +6,8 @@ export enum StudioTab {
   LIVE = 'live',
   ORCHESTRATOR = 'orchestrator',
   ARCHITECTURE = 'architecture',
-  VAULT = 'vault'
+  VAULT = 'vault',
+  GOVERNANCE = 'governance'
 }
 
 export interface GeneratedAsset {

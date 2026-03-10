@@ -8,6 +8,9 @@ import LiveStudio from './components/LiveStudio';
 import OrchestratorStudio from './components/OrchestratorStudio';
 import Architecture from './components/Architecture';
 import VaultStudio from './components/VaultStudio';
+import GovernanceStudio from './components/GovernanceStudio';
+import TrustCircle from './components/TrustCircle';
+import MorningBriefing from './components/MorningBriefing';
 import LandingPage from './components/LandingPage';
 import Logo from './components/Logo';
 import { StudioTab } from './types';
@@ -38,6 +41,52 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => 
     (localStorage.getItem('theme') as 'dark' | 'light') || 'dark'
   );
+
+  const [trustCircleUsers, setTrustCircleUsers] = useState<any[]>([]);
+  const [socket, setSocket] = useState<WebSocket | null>(null);
+
+  const sendInteraction = (active: boolean) => {
+    if (socket && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'interaction',
+        payload: { active }
+      }));
+    }
+  };
+
+  // WebSocket Connection for Trust Circle
+  useEffect(() => {
+    if (isAuth0Authenticated && auth0User) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const ws = new WebSocket(`${protocol}//${window.location.host}`);
+      
+      ws.onopen = () => {
+        ws.send(JSON.stringify({
+          type: 'join',
+          payload: {
+            sub: auth0User.sub,
+            name: auth0User.name,
+            picture: auth0User.picture,
+            color: '#' + Math.floor(Math.random()*16777215).toString(16)
+          }
+        }));
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'presence') {
+            setTrustCircleUsers(message.payload);
+          }
+        } catch (e) {
+          console.error('WS Message Error:', e);
+        }
+      };
+
+      setSocket(ws);
+      return () => ws.close();
+    }
+  }, [isAuth0Authenticated, auth0User]);
 
   // Background Auth Handshake
   useEffect(() => {
@@ -130,7 +179,7 @@ const App: React.FC = () => {
   };
 
   const renderContent = () => {
-    const commonProps = { theme, initialItem: recallItem };
+    const commonProps = { theme, initialItem: recallItem, onInteraction: sendInteraction };
     const onComponentMounted = () => setRecallItem(null);
 
     switch (activeTab) {
@@ -138,9 +187,10 @@ const App: React.FC = () => {
       case StudioTab.TEXT: return <TextStudio {...commonProps} onMounted={onComponentMounted} />;
       case StudioTab.IMAGE: return <ImageStudio {...commonProps} onMounted={onComponentMounted} />;
       case StudioTab.VIDEO: return <VideoStudio {...commonProps} onMounted={onComponentMounted} />;
-      case StudioTab.LIVE: return <LiveStudio theme={theme} />;
+      case StudioTab.LIVE: return <LiveStudio theme={theme} onInteraction={sendInteraction} />;
       case StudioTab.ARCHITECTURE: return <Architecture theme={theme} />;
       case StudioTab.VAULT: return <VaultStudio theme={theme} />;
+      case StudioTab.GOVERNANCE: return <GovernanceStudio theme={theme} />;
       default: return <OrchestratorStudio {...commonProps} onMounted={onComponentMounted} />;
     }
   };
@@ -270,6 +320,9 @@ const App: React.FC = () => {
             {renderContent()}
           </div>
         </div>
+
+        {isAuth0Authenticated && <TrustCircle users={trustCircleUsers} theme={theme} />}
+        {isAuth0Authenticated && <MorningBriefing theme={theme} />}
       </main>
 
       {/* Profile Modal & Search Overlay Click-Away */}

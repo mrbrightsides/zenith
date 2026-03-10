@@ -43,9 +43,10 @@ interface VideoStudioProps {
   theme: 'dark' | 'light';
   initialItem?: any;
   onMounted?: () => void;
+  onInteraction?: (active: boolean) => void;
 }
 
-const VideoStudio: React.FC<VideoStudioProps> = ({ theme, initialItem, onMounted }) => {
+const VideoStudio: React.FC<VideoStudioProps> = ({ theme, initialItem, onMounted, onInteraction }) => {
   const [prompt, setPrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState<'16:9' | '9:16'>('16:9');
   const [resolution, setResolution] = useState<'720p' | '1080p'>('720p');
@@ -56,6 +57,12 @@ const VideoStudio: React.FC<VideoStudioProps> = ({ theme, initialItem, onMounted
   const [isSyncing, setIsSyncing] = useState(false);
   
   const [queue, setQueue] = useState<RenderTask[]>([]);
+
+  useEffect(() => {
+    const isProcessing = queue.some(t => t.status === 'processing');
+    onInteraction?.(isProcessing);
+  }, [queue]);
+
   const [history, setHistory] = useState<VideoHistoryItem[]>([]);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
 
