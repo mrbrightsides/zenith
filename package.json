@@ -4,18 +4,21 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-  "dev": "tsx server.ts",
-  "build": "vite build",
-  "start": "tsx server.ts", 
-  "preview": "vite preview",
-  "lint": "tsc --noEmit"
-},
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "start": "node server.ts",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
   "dependencies": {
     "@auth0/auth0-react": "^2.15.0",
     "@google/genai": "^1.40.0",
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "@openfga/sdk": "^0.9.3",
+    "@types/d3": "^7.4.3",
     "@types/express": "^5.0.6",
     "@types/ws": "^8.18.1",
+    "d3": "^7.9.0",
     "express": "^5.2.1",
     "firebase": "^12.9.0",
     "firebase-admin": "^13.7.0",

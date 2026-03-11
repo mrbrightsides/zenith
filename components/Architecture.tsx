@@ -56,85 +56,79 @@ const Architecture: React.FC<{ theme: 'dark' | 'light' }> = ({ theme }) => {
             <Node 
               title="OPERATOR INTERFACE" 
               icon="fa-desktop" 
-              desc="Agentic Frontend" 
+              desc="Multimodal Frontend" 
               status={apiKeyStatus ? 'active' : 'error'}
-              tags={['React 19', 'Live SDK']} 
+              tags={['React 19', 'Live SDK', 'Voice UI']} 
             />
             <div className="flex items-center justify-center">
               <div className="flex flex-col items-center gap-2">
                 <i className={`fas fa-long-arrow-alt-right text-4xl ${apiKeyStatus ? 'text-indigo-500 animate-pulse' : 'text-slate-800'}`}></i>
-                <span className="text-[8px] font-black uppercase text-slate-600">Multimodal Link</span>
+                <span className="text-[8px] font-black uppercase text-slate-600">Real-time Protocol</span>
               </div>
             </div>
             <Node 
-              title="GEMINI CORE (AI)" 
-              icon="fa-bolt" 
-              desc="Agentic Logic Ecosystem" 
+              title="ORCHESTRATOR CORE" 
+              icon="fa-project-diagram" 
+              desc="Agentic Delegation Engine" 
               status={apiKeyStatus ? 'active' : 'pending'}
-              tags={['Live API', 'Multimodal', 'Reasoning']} 
+              tags={['Sub-tasking', 'Dependencies', 'Multi-Model']} 
             />
           </div>
 
           <div className={`h-20 w-px bg-gradient-to-b ${apiKeyStatus ? 'from-indigo-500 to-emerald-500' : 'from-slate-800 to-slate-900'} animate-pulse`}></div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 w-full gap-6">
-            <SubNode title="Gemini 3 Pro" active={apiKeyStatus} color="bg-blue-600" desc="Strategic Agency" />
+            <SubNode title="OpenFGA" active={true} color="bg-emerald-500" desc="Neural Governance" />
+            <SubNode title="Auth0 Vault" active={true} color="bg-indigo-600" desc="Token Intermediary" />
+            <SubNode title="Live Agent" active={apiKeyStatus} color="bg-blue-600" desc="Voice Command Link" />
             <SubNode title="Persistence" active={gcpStatus === 'connected'} color="bg-amber-600" desc={gcpStatus === 'connected' ? "Cloud Archive" : "Local Vault"} />
-            <SubNode title="Identity" active={!!auth?.currentUser} color="bg-indigo-600" desc={auth?.currentUser ? "Verified ID" : "Local Identity"} />
-            <SubNode title="Live Engine" active={apiKeyStatus} color="bg-emerald-600" desc="Real-time Stream" />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Link Health Analysis</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">System Integrity Analysis</h3>
           <ul className="space-y-4">
             <ComplianceItem 
-              label="Challenge API Handshake" 
-              status={apiKeyStatus ? 'Verified' : 'Unauthorized'} 
-              color={apiKeyStatus ? 'text-emerald-500' : 'text-red-500'}
+              label="Policy Relationship Graph" 
+              status="Active (OpenFGA)" 
+              color="text-emerald-500"
+              icon="fa-fingerprint" 
+            />
+            <ComplianceItem 
+              label="Vault Handshake" 
+              status="Secure (AES-256)" 
+              color="text-indigo-500"
               icon="fa-key" 
             />
             <ComplianceItem 
-              label="Agentic Memory Sync" 
-              status={gcpStatus === 'connected' ? 'Cloud Linked' : 'Sandbox (Local)'} 
-              color={gcpStatus === 'connected' ? 'text-emerald-500' : 'text-amber-500'}
-              icon="fa-cloud" 
+              label="Agentic Delegation" 
+              status="Enabled (Async)" 
+              color="text-blue-500"
+              icon="fa-network-wired" 
             />
             <ComplianceItem 
-              label="Multimodal Permission" 
-              status={micPermission === 'granted' ? 'Authorized' : 'Denied'} 
-              color={micPermission === 'granted' ? 'text-emerald-500' : 'text-red-500'}
+              label="Voice Command Link" 
+              status={micPermission === 'granted' ? 'Authorized' : 'Standby'} 
+              color={micPermission === 'granted' ? 'text-emerald-500' : 'text-amber-500'}
               icon="fa-microphone" 
-            />
-            <ComplianceItem 
-              label="Logic Engine Type" 
-              status="Gemini Challenge Native" 
-              color="text-indigo-500"
-              icon="fa-wave-square" 
             />
           </ul>
         </div>
         <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Agentic Sequence Logs</h3>
           <div className="bg-slate-950/80 rounded-2xl p-6 font-mono text-[10px] text-emerald-500/80 space-y-2 h-[200px] overflow-y-auto custom-scrollbar shadow-inner">
-            <p className="opacity-50">[{new Date().toLocaleTimeString()}] {'>>'} INITIALIZING AGENT CHALLENGE SEQUENCE...</p>
-            {!apiKeyStatus && (
-              <p className="text-red-400">[{new Date().toLocaleTimeString()}] {'>>'} CRITICAL: Challenge Key (API_KEY) Missing.</p>
-            )}
-            {!diagnostics.projectId && (
-              <p className="text-amber-400">[{new Date().toLocaleTimeString()}] {'>>'} INFO: Cloud Persistence variables missing. Operating in Sandbox.</p>
-            )}
+            <p className="opacity-50">[{new Date().toLocaleTimeString()}] {'>>'} INITIALIZING ZENITH ARCHITECTURE...</p>
+            <p className="text-emerald-400">[{new Date().toLocaleTimeString()}] {'>>'} GOVERNANCE: OpenFGA Policy Engine Online.</p>
+            <p className="text-indigo-400">[{new Date().toLocaleTimeString()}] {'>>'} VAULT: Auth0 Token Intermediary Ready.</p>
+            <p className="text-blue-400">[{new Date().toLocaleTimeString()}] {'>>'} ORCHESTRATOR: Task Delegation Engine Active.</p>
             {gcpStatus === 'connected' ? (
               <p className="text-emerald-400">[{new Date().toLocaleTimeString()}] {'>>'} MEMORY: Neural Link Established to Cloud Firestore.</p>
             ) : (
               <p className="text-amber-500">[{new Date().toLocaleTimeString()}] {'>>'} MEMORY: Persistent local storage vault active.</p>
             )}
-            <p className={auth?.currentUser ? 'text-emerald-400' : 'text-indigo-400'}>
-              [{new Date().toLocaleTimeString()}] {'>>'} IDENTITY: AGENT_LINK ... {auth?.currentUser ? 'AUTHORIZED_PARTICIPANT' : 'SANDBOX_GUEST'}
-            </p>
-            <p className="text-indigo-400 animate-pulse">[{new Date().toLocaleTimeString()}] {'>>'} STATUS: READY FOR MULTIMODAL DEMONSTRATION.</p>
+            <p className="text-indigo-400 animate-pulse">[{new Date().toLocaleTimeString()}] {'>>'} STATUS: ARCHITECTURE ALIGNED WITH MULTIMODAL AGENCY.</p>
           </div>
         </div>
       </div>

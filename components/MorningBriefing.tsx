@@ -13,6 +13,8 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
   const [status, setStatus] = useState<'analyzing' | 'generating' | 'ready'>('analyzing');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState('');
+  const [greeting, setGreeting] = useState('Good Morning');
+  const [briefingData, setBriefingData] = useState({ github: 0, calendar: 0 });
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -30,27 +32,37 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
   const generateBriefing = async () => {
     setStatus('analyzing');
     
-    // 1. Simulate Cognitive Analysis of GitHub/Google
+    // 1. Determine Greeting based on Time
+    const hour = new Date().getHours();
+    let currentGreeting = 'Good Morning';
+    if (hour >= 12 && hour < 17) currentGreeting = 'Good Afternoon';
+    else if (hour >= 17 || hour < 4) currentGreeting = 'Good Evening';
+    setGreeting(currentGreeting);
+
+    // 2. Simulate Cognitive Analysis with Dynamic Data
+    const mockGithub = Math.floor(Math.random() * 8) + 1;
+    const mockCalendar = Math.floor(Math.random() * 4) + 1;
+    setBriefingData({ github: mockGithub, calendar: mockCalendar });
+    
     await new Promise(r => setTimeout(r, 2000));
     
-    // 2. Generate Summary via Proxied Gemini Service
+    // 3. Generate Summary via Proxied Gemini Service
     try {
-      const prompt = `Generate a 2-sentence morning briefing for ${user?.name}. 
-      Mention that 3 GitHub issues are pending review and a pair-programming session is scheduled for 2 PM.
-      Keep it professional and agentic.`;
+      const prompt = `Generate a 2-sentence ${currentGreeting.toLowerCase()} briefing for ${user?.name}. 
+      The current time is ${new Date().toLocaleTimeString()} on ${new Date().toLocaleDateString()}.
+      Mention that ${mockGithub} GitHub issues are pending review and ${mockCalendar} meetings are scheduled for today.
+      Keep it professional, agentic, and strikingly human. Use a tone that feels like a high-end digital concierge.`;
       
       const response = await GeminiService.generateText(prompt);
       setSummary(response.text || 'Briefing analysis complete.');
     } catch (err) {
       console.error("Briefing generation failed:", err);
-      setSummary("Welcome back. Your agentic workspace is ready for orchestration.");
+      setSummary(`Welcome back, ${user?.given_name || 'User'}. Your agentic workspace is synchronized and ready for orchestration.`);
     }
 
     setStatus('generating');
     
-    // 3. Simulate Veo 3.1 Video Generation
-    // In a real app, we would call GeminiService.generateVideo
-    // For this demo, we'll use a high-quality cinematic placeholder
+    // 4. Simulate Veo 3.1 Video Generation
     await new Promise(r => setTimeout(r, 3000));
     setVideoUrl('https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
     
@@ -111,7 +123,7 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
 
               <div className="space-y-4">
                 <h2 className="text-4xl font-black tracking-tighter leading-tight italic uppercase">
-                  Good Morning, <br />
+                  {greeting}, <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-blue-400">{user?.given_name || user?.name}</span>
                 </h2>
                 <div className="h-px w-20 bg-indigo-500/50"></div>
@@ -131,7 +143,7 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
                     </div>
                     <div>
                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">GitHub</p>
-                      <p className="text-[10px] font-bold">3 Issues</p>
+                      <p className="text-[10px] font-bold">{briefingData.github} Issues</p>
                     </div>
                   </div>
                   <div className="glass p-4 rounded-2xl border border-white/5 flex items-center gap-3">
@@ -140,7 +152,7 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
                     </div>
                     <div>
                       <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Calendar</p>
-                      <p className="text-[10px] font-bold">1 Session</p>
+                      <p className="text-[10px] font-bold">{briefingData.calendar} {briefingData.calendar === 1 ? 'Session' : 'Sessions'}</p>
                     </div>
                   </div>
                 </div>

@@ -9,6 +9,17 @@ interface OrchestrationResult {
   videoUrl: string;
 }
 
+interface Task {
+  id: string;
+  agent: 'copywriter' | 'illustrator' | 'animator' | 'researcher';
+  fallbackAgent?: 'copywriter' | 'illustrator' | 'animator' | 'researcher';
+  prompt: string;
+  dependencies: string[];
+  status: 'queued' | 'active' | 'done' | 'failed';
+  priority: 'low' | 'medium' | 'high';
+  result?: string;
+}
+
 interface OrchestratorStudioProps {
   theme: 'dark' | 'light';
   initialItem?: any;
@@ -23,6 +34,26 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
   const [currentStage, setCurrentStage] = useState<number>(0); 
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([
+    { id: 't1', agent: 'researcher', prompt: 'Gather industry trends for the objective', dependencies: [], status: 'queued', priority: 'high' },
+    { id: 't2', agent: 'copywriter', prompt: 'Write a brand vision narrative based on research', dependencies: ['t1'], status: 'queued', priority: 'medium' },
+    { id: 't3', agent: 'illustrator', prompt: 'Generate a hero visual for the narrative', dependencies: ['t2'], status: 'queued', priority: 'medium', fallbackAgent: 'copywriter' },
+    { id: 't4', agent: 'animator', prompt: 'Create a product reveal animation', dependencies: ['t3'], status: 'queued', priority: 'low' },
+  ]);
+
+  const fetchGithubData = async () => {
+    // Simulating real-time GitHub data fetch
+    // In a real app, this would use the GitHub API with a token from the Vault
+    return {
+      issues: [
+        { title: "Optimize neural rendering pipeline", state: "open" },
+        { title: "Fix memory leak in agent delegation", state: "closed" }
+      ],
+      pullRequests: [
+        { title: "Feat: Add OpenFGA governance layer", author: "zenith-bot" }
+      ]
+    };
+  };
 
   useEffect(() => {
     onInteraction?.(isProcessing);
@@ -63,38 +94,72 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
     setResult(null);
 
     try {
-      // Stage 1: Text Narrative
-      setCurrentStage(1);
-      const textResponse = await GeminiService.generateText(
-        `You are a high-end Creative Director. Generate a detailed, factual, and visionary brand vision report for: "${goal}". 
-        ${useSearch ? "Use Google Search to gather the latest industry trends, competitor insights, and cultural relevance." : ""}
-        Include a punchy headline, a strategic executive summary, and specific descriptions of the visual assets we are synthesizing today.
-        Respond with ONLY the markdown-formatted report.`,
-        useSearch
-      );
-      const generatedText = textResponse.text;
+      // Reset tasks
+      setTasks(prev => prev.map(t => ({ ...t, status: 'queued', result: undefined })));
 
-      // Stage 2: Visual Synthesis
-      setCurrentStage(2);
-      const imagePrompt = `Masterpiece luxury commercial shot for ${goal}. Aesthetic: 8k, hyper-detailed, ray-traced lighting. Style: Premium cinematic.`;
-      const imageUrl = await GeminiService.generateImage(imagePrompt, 'gemini-3-pro-image-preview');
+      // Execute tasks based on dependencies
+      const executeTask = async (task: Task, isFallback = false) => {
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active' } : t));
+        
+        // Wait for dependencies
+        for (const depId of task.dependencies) {
+          while (true) {
+            const dep = tasks.find(t => t.id === depId);
+            if (dep?.status === 'done') break;
+            if (dep?.status === 'failed') throw new Error(`Dependency ${depId} failed`);
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
 
-      // Stage 3: Temporal Synthesis
-      setCurrentStage(3);
-      const videoPrompt = `Cinematic 5-second product reveal for ${goal}. Slow motion, fluid transitions, high production value.`;
-      const videoUrl = await GeminiService.generateVideo(videoPrompt, '16:9', '720p', 5, 'Cinematic');
+        try {
+          let taskResult = '';
+          const currentAgent = isFallback && task.fallbackAgent ? task.fallbackAgent : task.agent;
 
-      const orchestrationResult = {
-        text: generatedText,
-        imageUrl,
-        videoUrl
+          if (currentAgent === 'researcher') {
+            setCurrentStage(1);
+            const githubData = await fetchGithubData();
+            const githubContext = `\nGitHub Context: Issues: ${githubData.issues.map(i => i.title).join(', ')}. PRs: ${githubData.pullRequests.map(p => p.title).join(', ')}.`;
+            const res = await GeminiService.generateText(`Research: ${task.prompt} for ${goal}.${githubContext}`, true);
+            taskResult = res.text;
+          } else if (currentAgent === 'copywriter') {
+            setCurrentStage(2);
+            const res = await GeminiService.generateText(`Write narrative: ${task.prompt}. Context: ${goal}`, false);
+            taskResult = res.text;
+          } else if (currentAgent === 'illustrator') {
+            setCurrentStage(3);
+            taskResult = await GeminiService.generateImage(`${task.prompt} for ${goal}`, 'gemini-3-pro-image-preview');
+          } else if (currentAgent === 'animator') {
+            setCurrentStage(4);
+            taskResult = await GeminiService.generateVideo(`${task.prompt} for ${goal}`, '16:9', '720p', 5, 'Cinematic');
+          }
+
+          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'done', result: taskResult } : t));
+          return taskResult;
+        } catch (err) {
+          console.error(`Task ${task.id} failed`, err);
+          if (!isFallback && task.fallbackAgent) {
+            console.log(`Switching to fallback agent for ${task.id}`);
+            return executeTask(task, true);
+          }
+          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'failed' } : t));
+          throw err;
+        }
       };
 
-      setResult(orchestrationResult);
-      setCurrentStage(4); 
+      // Start all tasks that have no dependencies
+      const taskPromises = tasks.map(t => executeTask(t));
+      await Promise.all(taskPromises);
 
+      const finalResult = {
+        text: tasks.find(t => t.agent === 'copywriter')?.result || '',
+        imageUrl: tasks.find(t => t.agent === 'illustrator')?.result || '',
+        videoUrl: tasks.find(t => t.agent === 'animator')?.result || ''
+      };
+
+      setResult(finalResult);
+      
       // Save to Google Cloud (Firestore)
-      await GoogleCloudService.saveCampaign(goal, generatedText, imageUrl, videoUrl);
+      await GoogleCloudService.saveCampaign(goal, finalResult.text, finalResult.imageUrl, finalResult.videoUrl);
       loadHistory();
     } catch (error) {
       console.error("Orchestration failed", error);
@@ -161,11 +226,86 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
             </button>
 
             <div className="space-y-6 pt-4">
-              <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-4">Sequence Status</h3>
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Agent Delegation</h3>
+                <button 
+                  onClick={() => setTasks([...tasks, { id: `t${tasks.length + 1}`, agent: 'copywriter', prompt: 'New sub-task', dependencies: [], status: 'queued', priority: 'medium' }])}
+                  className="text-[8px] font-black uppercase text-indigo-500 hover:text-indigo-400"
+                >
+                  + Add Agent
+                </button>
+              </div>
               <div className="space-y-4">
-                <PipelineStep number={1} label="Narrative Engineering" status={currentStage > 1 ? 'done' : currentStage === 1 ? 'active' : 'queued'} />
-                <PipelineStep number={2} label="Visual Synthesis" status={currentStage > 2 ? 'done' : currentStage === 2 ? 'active' : 'queued'} />
-                <PipelineStep number={3} label="Temporal Synthesis" status={currentStage > 3 ? 'done' : currentStage === 3 ? 'active' : 'queued'} />
+                {tasks.map((task) => (
+                  <div key={task.id} className={`p-4 rounded-2xl border transition-all ${
+                    task.status === 'active' ? 'bg-indigo-600/10 border-indigo-500/30' : 
+                    task.status === 'done' ? 'bg-emerald-500/5 border-emerald-500/20 opacity-50' : 
+                    task.status === 'failed' ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-900/50 border-white/5'
+                  }`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-[8px] font-black border ${
+                          task.status === 'active' ? 'bg-indigo-600 border-indigo-400 text-white animate-pulse' :
+                          task.status === 'done' ? 'bg-emerald-600 border-emerald-400 text-white' : 
+                          task.status === 'failed' ? 'bg-red-600 border-red-400 text-white' : 'bg-slate-800 border-slate-700 text-slate-500'
+                        }`}>
+                          {task.status === 'done' ? <i className="fas fa-check"></i> : task.id.toUpperCase()}
+                        </div>
+                        <select 
+                          value={task.agent}
+                          onChange={(e) => setTasks(tasks.map(t => t.id === task.id ? { ...t, agent: e.target.value as any } : t))}
+                          className="bg-transparent text-[9px] font-black uppercase tracking-widest text-slate-400 outline-none border-none cursor-pointer"
+                        >
+                          <option value="researcher">Researcher</option>
+                          <option value="copywriter">Copywriter</option>
+                          <option value="illustrator">Illustrator</option>
+                          <option value="animator">Animator</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <select 
+                          value={task.priority}
+                          onChange={(e) => setTasks(tasks.map(t => t.id === task.id ? { ...t, priority: e.target.value as any } : t))}
+                          className={`text-[7px] font-black uppercase px-1 rounded border border-white/10 bg-slate-900 ${
+                            task.priority === 'high' ? 'text-red-400' : task.priority === 'medium' ? 'text-amber-400' : 'text-slate-500'
+                          }`}
+                        >
+                          <option value="low">Low</option>
+                          <option value="medium">Med</option>
+                          <option value="high">High</option>
+                        </select>
+                        <div className="flex items-center gap-1">
+                          {task.dependencies.map(depId => (
+                            <span key={depId} className="text-[7px] font-black bg-slate-800 px-1 rounded text-slate-500">DEP: {depId.toUpperCase()}</span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <input 
+                        type="text"
+                        value={task.prompt}
+                        onChange={(e) => setTasks(tasks.map(t => t.id === task.id ? { ...t, prompt: e.target.value } : t))}
+                        className="w-full bg-transparent text-[10px] text-slate-300 outline-none border-none placeholder:text-slate-700"
+                        placeholder="Task parameters..."
+                      />
+                      <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                        <span className="text-[7px] font-black uppercase text-slate-600">Fallback:</span>
+                        <select 
+                          value={task.fallbackAgent || ''}
+                          onChange={(e) => setTasks(tasks.map(t => t.id === task.id ? { ...t, fallbackAgent: (e.target.value || undefined) as any } : t))}
+                          className="bg-transparent text-[7px] font-black uppercase text-slate-500 outline-none border-none cursor-pointer"
+                        >
+                          <option value="">None</option>
+                          <option value="researcher">Researcher</option>
+                          <option value="copywriter">Copywriter</option>
+                          <option value="illustrator">Illustrator</option>
+                          <option value="animator">Animator</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -196,7 +336,48 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
           )}
         </div>
 
-        <div className="lg:col-span-8">
+        <div className="lg:col-span-8 space-y-12">
+          {/* Dependency Graph Visualization */}
+          <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Neural Dependency Graph</h3>
+            <div className="flex flex-wrap items-center justify-center gap-8 relative py-4">
+              {tasks.map((task, idx) => (
+                <React.Fragment key={task.id}>
+                  <div className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
+                    task.status === 'active' ? 'bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-500/20' :
+                    task.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900/50 border-white/5'
+                  }`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg border ${
+                      task.status === 'active' ? 'bg-indigo-600 text-white animate-pulse' :
+                      task.status === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'
+                    }`}>
+                      <i className={`fas ${
+                        task.agent === 'researcher' ? 'fa-search' :
+                        task.agent === 'copywriter' ? 'fa-pen-nib' :
+                        task.agent === 'illustrator' ? 'fa-paint-brush' : 'fa-film'
+                      }`}></i>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest">{task.agent}</span>
+                    <div className={`absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full text-[6px] font-black uppercase border ${
+                      task.priority === 'high' ? 'bg-red-500/20 border-red-500 text-red-500' :
+                      task.priority === 'medium' ? 'bg-amber-500/20 border-amber-500 text-amber-500' : 'bg-slate-800 border-white/5 text-slate-500'
+                    }`}>
+                      {task.priority}
+                    </div>
+                  </div>
+                  {idx < tasks.length - 1 && (
+                    <div className="flex flex-col items-center">
+                      <i className={`fas fa-long-arrow-alt-right text-xl ${
+                        tasks[idx].status === 'done' ? 'text-emerald-500' : 'text-slate-800'
+                      }`}></i>
+                      <span className="text-[6px] font-black uppercase text-slate-700">Sequence</span>
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
           {result ? (
             <div className="space-y-12 animate-in fade-in zoom-in-95 duration-1000">
               <div className="glass p-12 rounded-[4rem] border border-white/5 space-y-10 shadow-2xl bg-white/5">

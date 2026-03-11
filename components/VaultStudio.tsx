@@ -6,16 +6,30 @@ interface VaultStudioProps {
   theme: 'dark' | 'light';
 }
 
+interface Connection {
+  id: string;
+  name: string;
+  icon: string;
+  status: 'authorized' | 'pending' | 'disconnected' | 'expired' | 'error';
+  scope: string;
+  lastUsed: string;
+  connection?: string;
+  error?: string;
+  expiresAt?: number;
+}
+
 const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
   const { user, isAuthenticated, loginWithRedirect } = useAuth0();
   const [isRequesting, setIsRequesting] = useState(false);
+  const [pendingDisconnect, setPendingDisconnect] = useState<string | null>(null);
   
-  const [connections, setConnections] = useState(() => {
+  const [connections, setConnections] = useState<Connection[]>(() => {
     const saved = localStorage.getItem('zenith_vault_connections');
     if (saved) return JSON.parse(saved);
     
     return [
       { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago', connection: 'github' },
+      { id: 'github-actions', name: 'GitHub Actions', icon: 'fa-play-circle', status: 'disconnected', scope: 'workflow, write:packages', lastUsed: 'Never', connection: 'github' },
       { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never', connection: 'google-oauth2' },
       { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never', connection: 'spotify' },
     ];
@@ -35,6 +49,54 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
       ));
     }
   }, [isAuthenticated]);
+
+  // Voice Command Listener
+  React.useEffect(() => {
+    const handleVoiceCommand = (e: any) => {
+      const { action, serviceId } = e.detail;
+      console.log(`Vault Voice Command: ${action} ${serviceId}`);
+      
+      if (action === 'connect') {
+        const conn = connections.find(c => c.id === serviceId);
+        if (conn) handleAuthorize(serviceId, conn.connection);
+      } else if (action === 'disconnect') {
+        handleDisconnect(serviceId);
+      }
+    };
+
+    window.addEventListener('zenith-vault-command', handleVoiceCommand);
+    return () => window.removeEventListener('zenith-vault-command', handleVoiceCommand);
+  }, [connections]);
+
+  // Token Refresh Simulation Logic
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setConnections(prev => prev.map(c => {
+        // Randomly simulate an expiration for an authorized connection that doesn't have an error yet
+        if (c.status === 'authorized' && !c.error && Math.random() > 0.98) {
+          return { 
+            ...c, 
+            status: 'expired', 
+            error: 'OAuth Token Expired',
+            expiresAt: Date.now() 
+          };
+        }
+        return c;
+      }));
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRefresh = (id: string) => {
+    setIsRequesting(true);
+    setTimeout(() => {
+      setConnections(prev => prev.map(c => 
+        c.id === id ? { ...c, status: 'authorized', error: undefined, lastUsed: 'Just now' } : c
+      ));
+      setIsRequesting(false);
+    }, 2000);
+  };
 
   const handleAuthorize = (id: string, connection?: string) => {
     if (connection) {
@@ -56,10 +118,50 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
 
   const handleDisconnect = (id: string) => {
     setConnections(prev => prev.map(c => c.id === id ? { ...c, status: 'disconnected', lastUsed: 'Never' } : c));
+    setPendingDisconnect(null);
   };
+
+  const confirmDisconnect = (id: string) => {
+    setPendingDisconnect(id);
+  };
+
+  const pendingService = connections.find(c => c.id === pendingDisconnect);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700">
+      {/* Security Confirmation Dialog */}
+      {pendingDisconnect && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="glass max-w-md w-full p-8 rounded-[3rem] border border-red-500/20 shadow-2xl space-y-6 animate-in zoom-in duration-300">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-2xl text-red-500 border border-red-500/20 mx-auto">
+              <i className="fas fa-exclamation-triangle"></i>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-bold tracking-tight">Revoke Access?</h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                You are about to disconnect <span className="text-white font-bold">{pendingService?.name}</span>. 
+                This will immediately revoke all agentic permissions and stop any active background syncs. 
+                You will need to re-authorize through the secure vault to restore functionality.
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setPendingDisconnect(null)}
+                className="flex-1 py-3 rounded-2xl bg-slate-800 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => handleDisconnect(pendingDisconnect)}
+                className="flex-1 py-3 rounded-2xl bg-red-600 text-[10px] font-black uppercase tracking-widest hover:bg-red-500 transition-colors shadow-lg shadow-red-600/20"
+              >
+                Revoke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-black tracking-tighter uppercase italic">Vault Studio</h2>
@@ -100,9 +202,15 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
                     <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl ${
                       conn.status === 'authorized' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 
                       conn.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
+                      conn.status === 'expired' || conn.status === 'error' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
                       'bg-slate-800 text-slate-500 border-white/5'
-                    } border transition-colors`}>
+                    } border transition-colors relative`}>
                       <i className={`fab ${conn.icon}`}></i>
+                      {(conn.status === 'expired' || conn.status === 'error') && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-slate-900 flex items-center justify-center text-[10px] text-white">
+                          <i className="fas fa-exclamation-triangle"></i>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <div className="flex items-center gap-3">
@@ -110,12 +218,15 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
                         <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
                           conn.status === 'authorized' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
                           conn.status === 'pending' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 
+                          conn.status === 'expired' || conn.status === 'error' ? 'bg-red-500/10 text-red-500 border-red-500/20' :
                           'bg-slate-800 text-slate-500 border-white/5'
                         }`}>
                           {conn.status}
                         </span>
                       </div>
-                      <p className="text-[10px] text-slate-500 font-mono mt-1">Scope: {conn.scope}</p>
+                      <p className="text-[10px] text-slate-500 font-mono mt-1">
+                        {conn.error ? <span className="text-red-400 font-bold">{conn.error}</span> : `Scope: ${conn.scope}`}
+                      </p>
                     </div>
                   </div>
 
@@ -126,13 +237,22 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
                     </div>
                     <button 
                       disabled={isRequesting}
-                      onClick={() => conn.status === 'authorized' ? handleDisconnect(conn.id) : handleAuthorize(conn.id, conn.connection)}
+                      onClick={() => {
+                        if (conn.status === 'authorized') confirmDisconnect(conn.id);
+                        else if (conn.status === 'expired' || conn.status === 'error') handleRefresh(conn.id);
+                        else handleAuthorize(conn.id, conn.connection);
+                      }}
                       className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
                         conn.status === 'authorized' ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 
+                        conn.status === 'expired' || conn.status === 'error' ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white' :
                         isRequesting ? 'bg-slate-800 text-slate-600 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
                       }`}
                     >
-                      <i className={`fas ${conn.status === 'authorized' ? 'fa-unlink' : (isRequesting ? 'fa-spinner fa-spin' : 'fa-link')}`}></i>
+                      <i className={`fas ${
+                        conn.status === 'authorized' ? 'fa-unlink' : 
+                        (conn.status === 'expired' || conn.status === 'error') ? 'fa-sync-alt' :
+                        (isRequesting ? 'fa-spinner fa-spin' : 'fa-link')
+                      }`}></i>
                     </button>
                   </div>
                 </div>

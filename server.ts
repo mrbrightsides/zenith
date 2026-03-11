@@ -6,6 +6,7 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from "@google/genai";
+import { OpenFgaClient, CredentialsMethod } from '@openfga/sdk';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,110 @@ async function startServer() {
   const wss = new WebSocketServer({ noServer: true });
 
   const PORT = process.env.PORT || 8080;
+
+  // Initialize OpenFGA Client
+  const getOpenFgaClient = () => {
+    const apiUrl = process.env.FGA_API_URL;
+    const storeId = process.env.FGA_STORE_ID;
+    const modelId = process.env.FGA_MODEL_ID;
+    const clientId = process.env.FGA_CLIENT_ID;
+    const clientSecret = process.env.FGA_CLIENT_SECRET;
+
+    if (!apiUrl || !storeId || !clientId || !clientSecret) {
+      console.warn("WARNING: OpenFGA credentials not fully configured on server.");
+      return null;
+    }
+
+    // Auth0 FGA often requires the hostname only for the issuer
+    const rawIssuer = process.env.FGA_API_TOKEN_ISSUER || apiUrl.replace('api', 'auth');
+    const tokenIssuer = rawIssuer.replace(/^https?:\/\//, '').split('/')[0];
+    
+    // Auth0 FGA often requires a trailing slash for the audience
+    const rawAudience = process.env.FGA_API_AUDIENCE || apiUrl;
+    const apiAudience = rawAudience.endsWith('/') ? rawAudience : `${rawAudience}/`;
+
+    return new OpenFgaClient({
+      apiUrl,
+      storeId,
+      authorizationModelId: modelId,
+      credentials: {
+        method: CredentialsMethod.ClientCredentials,
+        config: {
+          apiTokenIssuer: tokenIssuer,
+          apiAudience: apiAudience,
+          clientId,
+          clientSecret,
+        }
+      }
+    });
+  };
+
+  // API Routes for OpenFGA
+  app.get('/api/fga/status', (req, res) => {
+    res.json({
+      apiUrl: !!process.env.FGA_API_URL,
+      storeId: !!process.env.FGA_STORE_ID,
+      modelId: !!process.env.FGA_MODEL_ID,
+      clientId: !!process.env.FGA_CLIENT_ID,
+      clientSecret: !!process.env.FGA_CLIENT_SECRET,
+      tokenIssuer: !!process.env.FGA_API_TOKEN_ISSUER,
+      apiAudience: !!process.env.FGA_API_AUDIENCE,
+      nodeEnv: process.env.NODE_ENV
+    });
+  });
+
+  app.get('/api/fga/model', async (req, res) => {
+    const fga = getOpenFgaClient();
+    if (!fga) return res.status(503).json({ error: "OpenFGA environment variables are missing on the server." });
+
+    try {
+      const { authorization_model } = await fga.readLatestAuthorizationModel();
+      res.json(authorization_model);
+    } catch (error: any) {
+      console.error("OpenFGA Model Error:", error);
+      res.status(500).json({ error: error.message || "Failed to fetch model" });
+    }
+  });
+
+  app.get('/api/fga/tuples', async (req, res) => {
+    const fga = getOpenFgaClient();
+    if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
+
+    try {
+      const { tuples } = await fga.read();
+      res.json(tuples);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/fga/write', async (req, res) => {
+    const fga = getOpenFgaClient();
+    if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
+
+    try {
+      const { user, relation, object } = req.body;
+      await fga.write({
+        writes: [{ user, relation, object }]
+      });
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/fga/check', async (req, res) => {
+    const fga = getOpenFgaClient();
+    if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
+
+    try {
+      const { user, relation, object } = req.body;
+      const { allowed } = await fga.check({ user, relation, object });
+      res.json({ allowed });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 
   // API Routes for Gemini (Server-side proxy)
   app.post('/api/gemini/text', async (req, res) => {
@@ -109,7 +214,7 @@ async function startServer() {
 
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       // Fetch the video on the server to keep the key hidden
-      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
       const buffer = await videoResponse.arrayBuffer();
       
@@ -124,15 +229,15 @@ async function startServer() {
     // Provide config to the frontend at runtime
     // Note: Gemini API Key is exposed here specifically for the Live API client-side requirement
     res.json({
-      isCloudConfigured: !!(process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY),
-      geminiApiKey: process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY,
+      isCloudConfigured: !!(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY),
+      geminiApiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY,
       firebase: {
-        projectId: process.env.FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID,
-        apiKey: process.env.FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID
+        projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
+        apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID
       }
     });
   });

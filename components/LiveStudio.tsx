@@ -489,6 +489,29 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
             if (message.serverContent?.turnComplete) {
               commitTurn();
             }
+
+            if (message.toolCall) {
+              const { functionCalls } = message.toolCall;
+              if (functionCalls) {
+                for (const fc of functionCalls) {
+                  if (fc.name === 'manageVaultConnection') {
+                    const { action, serviceId } = fc.args as any;
+                    window.dispatchEvent(new CustomEvent('zenith-vault-command', { 
+                      detail: { action, serviceId } 
+                    }));
+                    
+                    // Send response back to model
+                    sessionRef.current?.sendToolResponse({
+                      functionResponses: [{
+                        name: fc.name,
+                        id: fc.id,
+                        response: { result: `Successfully initiated ${action} for ${serviceId}` }
+                      }]
+                    });
+                  }
+                }
+              }
+            }
             
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && audioContextRef.current && !isPaused) {
@@ -518,9 +541,38 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: selectedVoice } } },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: 'manageVaultConnection',
+                  description: 'Connect or disconnect a third-party service in the Vault Studio.',
+                  parameters: {
+                    type: 'OBJECT' as any,
+                    properties: {
+                      action: {
+                        type: 'STRING' as any,
+                        description: 'The action to perform: "connect" or "disconnect".',
+                        enum: ['connect', 'disconnect']
+                      },
+                      serviceId: {
+                        type: 'STRING' as any,
+                        description: 'The ID of the service: "github", "google", or "spotify".',
+                        enum: ['github', 'google', 'spotify']
+                      }
+                    },
+                    required: ['action', 'serviceId']
+                  }
+                }
+              ]
+            }
+          ],
           systemInstruction: `You are the ZENITH Agent. You must be strikingly human, empathetic, and proactive.
           
           CORE PERSONALITY: ${selectedAvatar.personality}.
+          
+          VAULT CAPABILITIES:
+          You can manage service connections in the Vault Studio. If a user asks to "connect to GitHub" or "unlink Spotify", use the 'manageVaultConnection' tool.
           
           GUIDELINES:
           1. Wake Word: "Zenith". Respond with warmth when activated.
