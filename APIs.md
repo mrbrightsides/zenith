@@ -55,3 +55,18 @@ We use **Firebase** for agentic memory and historical context.
 
 ### `GoogleCloudService`
 *   **Sandbox Fallback:** Automatically switches to `localStorage` if GCP credentials are not detected, ensuring the app remains functional for all users.
+
+---
+
+## 🛡️ Governance Layer (OpenFGA)
+
+ZENITH LIVE implements fine-grained authorization to govern agentic actions.
+
+### 1. Neural Governance (`OpenFGA`)
+*   **Provider:** Auth0 FGA (SaaS)
+*   **Core Concepts:** Relationship Tuples (User -> Relation -> Object)
+*   **Implementation:** `OpenFgaClient` (Server-side)
+*   **Endpoints:**
+    *   `GET /api/fga/model`: Fetches the current authorization model DSL.
+    *   `GET /api/fga/tuples`: Synchronizes relationship tuples for visualization.
+    *   `GET /api/fga/status`: Diagnostic check for credential configuration.

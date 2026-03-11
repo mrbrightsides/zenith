@@ -111,6 +111,11 @@ Note: This log documents the technical evolution, infrastructure pivots, and dep
 - **OpenFGA Architecture:** Added `GovernanceStudio` to manage and visualize fine-grained permissions.
 - **Relationship Tuples:** Defined a schema for "Allowed" vs "Denied" actions (e.g., Read vs Delete).
 - **UI Evolution:** Pushed the aesthetic towards a "Technical Dashboard / Specialist Tool" feel for the governance layer.
+- **[2026-03-11] - Neural Governance Stabilized:**
+  - **The "Forbidden" Resolution:** Fixed a critical authentication issue by normalizing the `FGA_API_TOKEN_ISSUER` (hostname only) and ensuring the `apiAudience` includes a trailing slash.
+  - **Prefix Standard:** Standardized all environment variables to the `FGA_` prefix (e.g., `FGA_API_URL`) for consistency with official OpenFGA tooling.
+  - **Diagnostic Layer:** Added a server-side status endpoint to verify credential presence without exposing secrets.
+  - **Identity Synchronization:** Fixed a UI issue where the Agent UID appeared as "Local" despite active Auth0 authentication. The system now correctly prioritizes the Auth0 `sub` as the Agent UID and updates the connection status to "Identity Active" when authenticated.
 
 ---
 

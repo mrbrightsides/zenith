@@ -220,13 +220,17 @@ const App: React.FC = () => {
         <header className="h-20 px-10 flex items-center justify-between glass sticky top-0 z-[250] border-b border-white/5 shadow-2xl">
           <div className="flex items-center gap-5 text-sm font-medium">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : 'bg-amber-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : (isAuth0Authenticated ? 'bg-indigo-400 animate-pulse' : 'bg-amber-500')}`}></div>
               <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]">
                 {isGCPConfigured ? (
                   <span className="flex items-center gap-2 text-indigo-400">
                     Challenge Server Linked <i className="fas fa-check-circle text-[8px]"></i>
                   </span>
-                ) : 'Sandbox Environment'}
+                ) : (isAuth0Authenticated ? (
+                  <span className="flex items-center gap-2 text-indigo-300">
+                    Identity Active <i className="fas fa-user-check text-[8px]"></i>
+                  </span>
+                ) : 'Sandbox Environment')}
               </span>
             </div>
             <i className="fas fa-chevron-right text-[8px] text-slate-700"></i>
@@ -359,13 +363,13 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex justify-between items-center border-b border-white/5 pb-4">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Connection</span>
-                    <span className={`text-[9px] font-black uppercase tracking-widest ${isGCPConfigured ? 'text-emerald-500' : 'text-amber-500'}`}>
-                      {isGCPConfigured ? 'Challenge Native (Cloud)' : 'Sandbox Mode (Local)'}
+                    <span className={`text-[9px] font-black uppercase tracking-widest ${isGCPConfigured ? 'text-emerald-500' : (isAuth0Authenticated ? 'text-indigo-400' : 'text-amber-500')}`}>
+                      {isGCPConfigured ? 'Challenge Native (Cloud)' : (isAuth0Authenticated ? 'Identity Active (Local Data)' : 'Sandbox Mode (Local)')}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Agent UID</span>
-                    <span className="text-[8px] font-mono opacity-50">{user?.uid || 'LOCAL_GUEST_ID'}</span>
+                    <span className="text-[8px] font-mono opacity-50 truncate max-w-[180px]">{user?.uid || auth0User?.sub || 'LOCAL_GUEST_ID'}</span>
                   </div>
                 </div>
 

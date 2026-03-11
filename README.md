@@ -70,6 +70,11 @@ Clone the repository and create a `.env` file based on `.env.example`. You will 
 - **Gemini API Key:** From [Google AI Studio](https://aistudio.google.com/).
 - **Auth0 Tenant:** For identity and the "Authorized to Act" flow.
 - **Firebase Project:** For agentic memory persistence.
+- **OpenFGA (Auth0 FGA):** For fine-grained governance.
+  - `FGA_API_URL`: Your FGA API endpoint.
+  - `FGA_STORE_ID`: Your specific FGA store.
+  - `FGA_CLIENT_ID` & `FGA_CLIENT_SECRET`: Scoped API credentials.
+  - `FGA_API_TOKEN_ISSUER`: Your Auth0 domain (e.g., `fga.us.auth0.com`).
 
 ### 2. Installation & Startup
 ```bash
@@ -111,5 +116,5 @@ The application will be available at `http://localhost:8080`.
 
 ---
 
-*Engineered for the Gemini Live Agent Challenge and Auth0*
+*Engineered for the Gemini Live Agent Challenge 2026*  
 *Engineered by mrbrightsides*
