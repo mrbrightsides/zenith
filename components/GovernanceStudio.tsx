@@ -27,7 +27,7 @@ interface Tuple {
 }
 
 const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
-  const { user, isAuthenticated } = useAuth0();
+  const { user, isAuthenticated, loginWithRedirect, getIdTokenClaims } = useAuth0();
   const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number, y: number, content: string, visible: boolean }>({ x: 0, y: 0, content: '', visible: false });
   
@@ -48,6 +48,8 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
   const [authModel, setAuthModel] = useState(`Loading OpenFGA Model...`);
   const [isStepUpRequired, setIsStepUpRequired] = useState(false);
   const [stepUpStatus, setStepUpStatus] = useState<'idle' | 'requesting' | 'verified'>('idle');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [pendingOp, setPendingOp] = useState<{ id: string, label: string } | null>(null);
 
   const commonRelations = ['viewer', 'editor', 'admin', 'reader', 'writer', 'owner'];
   const commonObjects = ['GitHub: zenith-core', 'Google: Neural Schedule', 'Spotify: Audio Stream', 'Vault: Secrets'];
@@ -92,9 +94,7 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
       setAlert({ message: 'Tuple injected successfully into OpenFGA.', type: 'success' });
       
       // Re-verify ownership if the user just updated themselves
-      if (newTuple.user === user?.sub) {
-        checkOwnership();
-      }
+      // (Handled by useEffect on tuples change)
     } catch (err: any) {
       setAlert({ message: `Injection Failed: ${err.message}`, type: 'error' });
     } finally {
@@ -163,28 +163,90 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
 
   const checkOwnership = async () => {
     if (!user?.sub) return;
+    const checkPayload = {
+      user: `user:${user.sub}`,
+      relation: 'owner',
+      object: 'workspace:zenith-live'
+    };
+
+    console.log("[FGA] Checking Ownership:", checkPayload);
+
     try {
       const response = await fetch('/api/fga/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user: user.sub,
-          relation: 'owner',
-          object: 'workspace:zenith'
-        })
+        body: JSON.stringify(checkPayload)
       });
-      const { allowed } = await response.json();
-      setIsOwner(allowed);
+      const data = await response.json();
+      console.log("[FGA] Check Response:", data);
+      setIsOwner(data.allowed);
     } catch (err) {
       console.error("Ownership check failed:", err);
     }
   };
 
+  const checkMFAStatus = async () => {
+    if (!isAuthenticated) return;
+    try {
+      const claims = await getIdTokenClaims();
+      // Check for MFA in acr or amr claims
+      const hasMFA = claims?.acr === 'http://schemas.openid.net/pape/policies/2007/06/multi-factor' || 
+                     (claims as any)?.amr?.includes('mfa');
+      
+      if (hasMFA) {
+        setStepUpStatus('verified');
+        
+        // Check for pending operation in session storage
+        const savedOp = sessionStorage.getItem('zenith_pending_op');
+        if (savedOp) {
+          const op = JSON.parse(savedOp);
+          console.log(`[GOVERNANCE] ${op.label} Initiated by ${user?.sub} (MFA VERIFIED)`);
+          setAlert({ message: `Executing ${op.label}... Agentic action authorized via MFA.`, type: 'success' });
+          sessionStorage.removeItem('zenith_pending_op');
+          setTimeout(() => setAlert(null), 5000);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to check MFA status:", err);
+    }
+  };
+
+  const handleStepUpTrigger = async () => {
+    if (!isOwner) {
+      setAlert({ message: "UNAUTHORIZED: Only Workspace Owners can initiate high-stakes operations.", type: 'error' });
+      setIsStepUpRequired(false);
+      setTimeout(() => setAlert(null), 5000);
+      return;
+    }
+
+    // Save pending operation to session storage before redirect
+    if (pendingOp) {
+      sessionStorage.setItem('zenith_pending_op', JSON.stringify(pendingOp));
+    }
+
+    setStepUpStatus('requesting');
+    setIsVerifying(true);
+
+    // Trigger Auth0 Step-up MFA
+    loginWithRedirect({
+      authorizationParams: {
+        acr_values: 'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
+        prompt: 'login' // Force re-auth to ensure MFA is triggered
+      }
+    });
+  };
+
   useEffect(() => {
     syncWithOpenFGA();
     fetchModel();
-    checkOwnership();
-  }, [user]);
+    checkMFAStatus();
+  }, [user, isAuthenticated]);
+
+  useEffect(() => {
+    if (user?.sub) {
+      checkOwnership();
+    }
+  }, [user, tuples]);
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -570,8 +632,10 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
               key={op.id}
               onClick={() => {
                 if (stepUpStatus !== 'verified') {
+                  setPendingOp(op);
                   setIsStepUpRequired(true);
                 } else {
+                  console.log(`[GOVERNANCE] ${op.label} Initiated by ${user?.sub}`);
                   setAlert({ message: `Executing ${op.label}... Agentic action authorized.`, type: 'success' });
                   setTimeout(() => setAlert(null), 3000);
                 }
@@ -588,51 +652,74 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
       {/* Step-up MFA Modal */}
       {isStepUpRequired && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="glass max-w-md w-full p-12 rounded-[3rem] border border-indigo-500/30 shadow-[0_0_100px_rgba(79,70,229,0.2)] space-y-8 text-center animate-in zoom-in-95 duration-500">
-            <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center text-4xl text-indigo-500 border border-indigo-500/20 mx-auto">
-              <i className="fas fa-shield-check"></i>
+          {isVerifying ? (
+            <div className="text-center space-y-12 relative">
+              {/* Neural Core Pulse Overlay */}
+              <div className="absolute inset-0 -z-10 flex items-center justify-center">
+                <div className="w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[120px] animate-pulse"></div>
+              </div>
+              
+              <div className="relative w-48 h-48 mx-auto">
+                <div className="absolute inset-0 rounded-full border-4 border-indigo-500/10 scale-150 animate-ping"></div>
+                <div className="absolute inset-0 rounded-full border-2 border-indigo-500/20 scale-125 animate-pulse"></div>
+                <div className="absolute inset-0 border-4 border-indigo-500/30 rounded-full border-t-indigo-500 animate-spin"></div>
+                
+                {/* Inner Pulsing Core */}
+                <div className="absolute inset-4 bg-gradient-to-br from-indigo-600 to-violet-900 rounded-full shadow-[0_0_50px_rgba(79,70,229,0.4)] flex items-center justify-center text-4xl text-white">
+                  <i className="fas fa-fingerprint animate-pulse"></i>
+                </div>
+                
+                {/* Orbiting Particles */}
+                <div className="absolute inset-0 animate-[spin_3s_linear_infinite]">
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-indigo-400 rounded-full shadow-[0_0_15px_rgba(129,140,248,0.8)]"></div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <h3 className="text-3xl font-black tracking-tighter uppercase italic text-white">Neural MFA Handshake</h3>
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500 animate-pulse">Redirecting to Secure Identity Core</p>
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="w-1 h-1 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.2}s` }}></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-3xl font-black tracking-tighter uppercase italic">Step-up Required</h3>
-              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Auth0 MFA Handshake</p>
-            </div>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              This operation is marked as <span className="text-red-500 font-bold">CRITICAL</span>. 
-              Zenith requires a secondary biometric or MFA verification via Auth0 to proceed with agentic execution.
-            </p>
-            <div className="space-y-4">
-              <button 
-                onClick={() => {
-                  setStepUpStatus('requesting');
-                  setTimeout(() => {
-                    setStepUpStatus('verified');
+          ) : (
+            <div className="glass max-w-md w-full p-12 rounded-[3rem] border border-indigo-500/30 shadow-[0_0_100px_rgba(79,70,229,0.2)] space-y-8 text-center animate-in zoom-in-95 duration-500">
+              <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center text-4xl text-indigo-500 border border-indigo-500/20 mx-auto">
+                <i className="fas fa-shield-check"></i>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black tracking-tighter uppercase italic">Step-up Required</h3>
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Auth0 MFA Handshake</p>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                The operation <span className="text-white font-bold">{pendingOp?.label}</span> is marked as <span className="text-red-500 font-bold">CRITICAL</span>. 
+                Zenith requires a secondary biometric or MFA verification via Auth0 to proceed with agentic execution.
+              </p>
+              <div className="space-y-4">
+                <button 
+                  onClick={handleStepUpTrigger}
+                  className="w-full py-4 rounded-2xl bg-indigo-600 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-3"
+                >
+                  <i className="fas fa-fingerprint"></i>
+                  Verify with Auth0 MFA
+                </button>
+                <button 
+                  onClick={() => {
                     setIsStepUpRequired(false);
-                    setAlert({ message: 'Step-up Authentication Successful. Action Authorized.', type: 'success' });
-                    setTimeout(() => setAlert(null), 3000);
-                  }, 2000);
-                }}
-                className="w-full py-4 rounded-2xl bg-indigo-600 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-3"
-              >
-                {stepUpStatus === 'requesting' ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin"></i>
-                    Verifying Identity...
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-fingerprint"></i>
-                    Verify with Auth0 MFA
-                  </>
-                )}
-              </button>
-              <button 
-                onClick={() => setIsStepUpRequired(false)}
-                className="w-full py-4 rounded-2xl bg-slate-800 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
-              >
-                Cancel Operation
-              </button>
+                    setPendingOp(null);
+                  }}
+                  className="w-full py-4 rounded-2xl bg-slate-800 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
+                >
+                  Cancel Operation
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
