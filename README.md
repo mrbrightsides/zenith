@@ -1,20 +1,28 @@
 
 # ZENITH LIVE 🌌
-### The Multimodal Agentic Orchestrator
+### The Unified Agentic Ecosystem: Multimodal & Authorized Agency
 
-**ZENITH LIVE** is an official entry for the **Gemini Live Agent Challenge**. It demonstrates the peak of real-time multimodal agency by unifying strategic reasoning, high-fidelity visual synthesis, and low-latency voice/vision interaction into a single agentic interface.
+**ZENITH LIVE** is a high-stakes, dual-purpose agentic platform engineered for the **Gemini Live Agent Challenge** and the **Auth0 "Authorized to Act" Hackathon**. It demonstrates the peak of real-time multimodal interaction unified with secure, governed third-party agency.
 
-Now officially **LIVE on Google Cloud**, Zenith has evolved from a standalone agent into a collaborative, governed, and authorized agentic ecosystem.
+Zenith pushes the boundaries of what AI agents can do by acting as a secure **Intermediary Agent**—bridging the gap between local, sovereign AI (like **OpenClaw**) and the digital world, while providing ultra-low latency voice/vision handshakes.
 
 ---
 
-## ⚡ Neural Orchestration (Multimodal Agency)
-ZENITH LIVE handles complex, multi-stage tasks by orchestrating the world's most advanced AI models:
+## 🛡️ The "Authorized to Act" Vision (Auth0)
+Zenith solves the security dilemma of sovereign AI by providing a governed layer for digital interaction:
+1.  **Secure Intermediary:** Zenith runs in a restricted environment, acting as the only bridge to the user's digital life.
+2.  **Auth0 Token Vault:** Seamless management of scoped OAuth tokens for **GitHub**, **Google Calendar**, and **Spotify**.
+3.  **Neural Governance (OpenFGA):** Fine-grained authorization policies that define exactly what the agent can do.
+4.  **Step-up Authentication:** High-stakes operations trigger mandatory Auth0 MFA/Biometric handshakes.
 
-1.  **Cognitive Narrative:** **Gemini 3.1 Pro** reasoning engine grounded with real-time Google Search.
-2.  **Visual Asset Synthesis:** Seamless transition to **Imagen 3** for cinematic-grade imagery.
-3.  **Temporal Motion Synthesis:** Automatic generation of 1080p video sequences via the **Veo 3.1** engine.
-4.  **Live Interaction:** **Gemini 2.5 Flash (Native Audio)** for ultra-low latency voice/vision handshakes.
+---
+
+## ⚡ Neural Orchestration (Gemini Multimodal)
+Zenith orchestrates the world's most advanced AI models for real-time agency:
+1.  **Live Interaction:** **Gemini 2.5 Flash (Native Audio)** for ultra-low latency voice/vision handshakes.
+2.  **Cognitive Narrative:** **Gemini 3.1 Pro** reasoning engine grounded with real-time Google Search.
+3.  **Visual Asset Synthesis:** Seamless transition to **Imagen 3** for cinematic-grade imagery.
+4.  **Temporal Motion Synthesis:** Automatic generation of 1080p video sequences via the **Veo 3.1** engine.
 
 ---
 
@@ -74,14 +82,14 @@ Clone the repository and create a `.env` file based on `.env.example`. You will 
   - `FGA_API_URL`: Your FGA API endpoint.
   - `FGA_STORE_ID`: Your specific FGA store.
   - `FGA_CLIENT_ID` & `FGA_CLIENT_SECRET`: Scoped API credentials.
-  - `FGA_API_TOKEN_ISSUER`: Your Auth0 domain (e.g., `fga.us.auth0.com`).
+  - `FGA_TOKEN_ISSUER`: Your Auth0 domain (e.g., `fga.us.auth0.com`).
 
 ### 2. Installation & Startup
 ```bash
 npm install
 npm run dev
 ```
-The application will be available at `http://localhost:8080`.
+The application will be available at `http://localhost:3000`.
 
 ### 3. Testing Key Modalities
 
@@ -116,5 +124,5 @@ The application will be available at `http://localhost:8080`.
 
 ---
 
-*Engineered for the Gemini Live Agent Challenge 2026*  
+*Engineered for the Gemini Live Agent Challenge & Auth0 Authorized to Act Hackathon 2026*
 *Engineered by mrbrightsides*

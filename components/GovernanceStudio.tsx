@@ -46,6 +46,8 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
   const [connectionFailed, setConnectionFailed] = useState(false);
 
   const [authModel, setAuthModel] = useState(`Loading OpenFGA Model...`);
+  const [isStepUpRequired, setIsStepUpRequired] = useState(false);
+  const [stepUpStatus, setStepUpStatus] = useState<'idle' | 'requesting' | 'verified'>('idle');
 
   const commonRelations = ['viewer', 'editor', 'admin', 'reader', 'writer', 'owner'];
   const commonObjects = ['GitHub: zenith-core', 'Google: Neural Schedule', 'Spotify: Audio Stream', 'Vault: Secrets'];
@@ -537,6 +539,102 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
           </div>
         </div>
       </div>
+
+      {/* High-Stakes Operations & Step-up Auth */}
+      <div className="glass rounded-[2.5rem] border border-red-500/20 bg-red-500/5 p-8 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 border border-red-500/20">
+              <i className="fas fa-biohazard"></i>
+            </div>
+            <div>
+              <h3 className="text-xl font-bold tracking-tight">High-Stakes Agentic Operations</h3>
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-500/60">Requires Auth0 Step-up Authentication</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className={`w-2 h-2 rounded-full ${stepUpStatus === 'verified' ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              {stepUpStatus === 'verified' ? 'MFA Verified' : 'MFA Required'}
+            </span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { id: 'wipe', label: 'Wipe Repository', icon: 'fa-eraser', color: 'red' },
+            { id: 'deploy', label: 'Production Deploy', icon: 'fa-rocket', color: 'amber' },
+            { id: 'revoke', label: 'Revoke All Tokens', icon: 'fa-user-slash', color: 'red' }
+          ].map(op => (
+            <button 
+              key={op.id}
+              onClick={() => {
+                if (stepUpStatus !== 'verified') {
+                  setIsStepUpRequired(true);
+                } else {
+                  setAlert({ message: `Executing ${op.label}... Agentic action authorized.`, type: 'success' });
+                  setTimeout(() => setAlert(null), 3000);
+                }
+              }}
+              className={`p-6 rounded-3xl glass border border-white/5 hover:border-${op.color}-500/30 transition-all flex flex-col items-center gap-3 group`}
+            >
+              <i className={`fas ${op.icon} text-2xl text-${op.color}-500 group-hover:scale-110 transition-transform`}></i>
+              <span className="text-[9px] font-black uppercase tracking-widest">{op.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Step-up MFA Modal */}
+      {isStepUpRequired && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="glass max-w-md w-full p-12 rounded-[3rem] border border-indigo-500/30 shadow-[0_0_100px_rgba(79,70,229,0.2)] space-y-8 text-center animate-in zoom-in-95 duration-500">
+            <div className="w-24 h-24 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center text-4xl text-indigo-500 border border-indigo-500/20 mx-auto">
+              <i className="fas fa-shield-check"></i>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-3xl font-black tracking-tighter uppercase italic">Step-up Required</h3>
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Auth0 MFA Handshake</p>
+            </div>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              This operation is marked as <span className="text-red-500 font-bold">CRITICAL</span>. 
+              Zenith requires a secondary biometric or MFA verification via Auth0 to proceed with agentic execution.
+            </p>
+            <div className="space-y-4">
+              <button 
+                onClick={() => {
+                  setStepUpStatus('requesting');
+                  setTimeout(() => {
+                    setStepUpStatus('verified');
+                    setIsStepUpRequired(false);
+                    setAlert({ message: 'Step-up Authentication Successful. Action Authorized.', type: 'success' });
+                    setTimeout(() => setAlert(null), 3000);
+                  }, 2000);
+                }}
+                className="w-full py-4 rounded-2xl bg-indigo-600 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-3"
+              >
+                {stepUpStatus === 'requesting' ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin"></i>
+                    Verifying Identity...
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-fingerprint"></i>
+                    Verify with Auth0 MFA
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={() => setIsStepUpRequired(false)}
+                className="w-full py-4 rounded-2xl bg-slate-800 text-[10px] font-black uppercase tracking-widest hover:bg-slate-700 transition-colors"
+              >
+                Cancel Operation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Relationship Graph Visualization */}
       <div className="glass rounded-[2.5rem] border border-white/10 p-8 relative">

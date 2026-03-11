@@ -165,12 +165,28 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-4xl font-black tracking-tighter uppercase italic">Vault Studio</h2>
-          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Auth0 Token Vault Intermediary</p>
+          <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Sovereign AI Bridge & Token Vault</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="glass px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Vault Secure</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intermediary Active</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass p-8 rounded-[2.5rem] border border-indigo-500/20 bg-indigo-500/5 mb-8">
+        <div className="flex items-start gap-6">
+          <div className="w-16 h-16 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-3xl text-indigo-400 border border-indigo-500/30">
+            <i className="fas fa-microchip"></i>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold tracking-tight">OpenClaw Sovereign Link</h3>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-3xl">
+              Zenith acts as the secure intermediary for your local <span className="text-indigo-400 font-bold">OpenClaw</span> instance. 
+              By keeping your sovereign AI in restricted mode, Zenith handles the "Authorized to Act" flows, 
+              managing scoped tokens and consent delegation via the Auth0 Token Vault.
+            </p>
           </div>
         </div>
       </div>
