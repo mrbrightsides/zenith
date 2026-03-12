@@ -189,9 +189,20 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
     if (!isAuthenticated) return;
     try {
       const claims = await getIdTokenClaims();
-      // Check for MFA in acr or amr claims
-      const hasMFA = claims?.acr === 'http://schemas.openid.net/pape/policies/2007/06/multi-factor' || 
-                     (claims as any)?.amr?.includes('mfa');
+      console.log("[AUTH] ID Token Claims:", claims);
+      
+      // Check for MFA in acr or amr claims (ensure boolean result)
+      const acrClaim = claims?.acr;
+      const amrClaim = (claims as any)?.amr || [];
+      
+      const hasMFA = !!(
+        acrClaim === 'http://schemas.openid.net/pape/policies/2007/06/multi-factor' || 
+        amrClaim.includes('mfa') ||
+        amrClaim.includes('otp') ||
+        amrClaim.includes('duo')
+      );
+      
+      console.log("[AUTH] MFA Status Check:", { acr: acrClaim, amr: amrClaim, verified: hasMFA });
       
       if (hasMFA) {
         setStepUpStatus('verified');
@@ -204,6 +215,18 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
           setAlert({ message: `Executing ${op.label}... Agentic action authorized via MFA.`, type: 'success' });
           sessionStorage.removeItem('zenith_pending_op');
           setTimeout(() => setAlert(null), 5000);
+        }
+      } else {
+        // If we have a pending op but no MFA, it means the redirect happened but MFA wasn't satisfied
+        const savedOp = sessionStorage.getItem('zenith_pending_op');
+        if (savedOp) {
+          console.warn("[AUTH] Returned from Auth0 but MFA claim is missing. Ensure Auth0 Action is configured.");
+          setAlert({ 
+            message: "MFA challenge was not triggered. Please verify your Auth0 'Post-Login' Action is enforcing MFA for Step-up.", 
+            type: 'error' 
+          });
+          sessionStorage.removeItem('zenith_pending_op');
+          setTimeout(() => setAlert(null), 6000);
         }
       }
     } catch (err) {
@@ -230,8 +253,7 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
     // Trigger Auth0 Step-up MFA
     loginWithRedirect({
       authorizationParams: {
-        acr_values: 'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
-        prompt: 'login' // Force re-auth to ensure MFA is triggered
+        acr_values: 'http://schemas.openid.net/pape/policies/2007/06/multi-factor'
       }
     });
   };

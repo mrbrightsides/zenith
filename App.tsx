@@ -27,9 +27,21 @@ const App: React.FC = () => {
     logout: auth0Logout,
   } = useAuth0();
 
-  const [activeTab, setActiveTab] = useState<StudioTab>(StudioTab.ORCHESTRATOR);
+  const [activeTab, setActiveTab] = useState<StudioTab>(() => 
+    (localStorage.getItem('zenith_active_tab') as StudioTab) || StudioTab.ORCHESTRATOR
+  );
+
+  useEffect(() => {
+    localStorage.setItem('zenith_active_tab', activeTab);
+  }, [activeTab]);
   const [user, setUser] = useState<any>(null);
   const [isLanding, setIsLanding] = useState(true);
+
+  useEffect(() => {
+    if (isAuth0Authenticated) {
+      setIsLanding(false);
+    }
+  }, [isAuth0Authenticated]);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [forceSandbox, setForceSandbox] = useState(() => localStorage.getItem('zenith_force_sandbox') === 'true');
   
