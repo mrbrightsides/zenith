@@ -48,7 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme }) => 
       </nav>
 
       <div className={`mt-auto p-4 glass rounded-2xl text-[10px] text-center border border-white/5 uppercase tracking-[0.2em] ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>
-        Agent Challenge v1.0
+        github.com/mrbrightsides
       </div>
     </aside>
   );

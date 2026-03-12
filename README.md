@@ -141,5 +141,4 @@ The application will be available at `http://localhost:8080`.
 
 ---
 
-*Engineered for the Gemini Live Agent Challenge & Auth0 Authorized to Act Hackathon 2026*
-*Engineered by mrbrightsides*
+*Engineered for the Gemini Live Agent Challenge & Auth0 Authorized to Act Hackathon 2026 by mrbrightsides*
