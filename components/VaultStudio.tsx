@@ -50,6 +50,25 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
     }
   }, [isAuthenticated]);
 
+  const [logs, setLogs] = useState<{ id: string; time: string; type: string; message: string; color: string }[]>([]);
+
+  // MFA Listener for Token Release
+  React.useEffect(() => {
+    const handleMFAVerified = () => {
+      const newLog = {
+        id: Date.now().toString(),
+        time: new Date().toLocaleTimeString([], { hour12: false }),
+        type: 'TOKEN_RELEASED',
+        message: 'SOVEREIGN_CREDENTIALS_RELEASED_VIA_MFA',
+        color: 'text-emerald-400'
+      };
+      setLogs(prev => [newLog, ...prev].slice(0, 10));
+    };
+
+    window.addEventListener('zenith-mfa-verified', handleMFAVerified);
+    return () => window.removeEventListener('zenith-mfa-verified', handleMFAVerified);
+  }, []);
+
   // Voice Command Listener
   React.useEffect(() => {
     const handleVoiceCommand = (e: any) => {
@@ -306,6 +325,17 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
           <div className="glass rounded-[2.5rem] border border-white/10 p-8 space-y-6">
             <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Audit Trail</h3>
             <div className="space-y-4 font-mono text-[9px]">
+              {logs.map((log) => (
+                <div key={log.id} className="space-y-1 animate-in slide-in-from-left-2 duration-300">
+                  <div className="flex gap-3 text-slate-500">
+                    <span className="text-indigo-400">[{log.time}]</span>
+                    <span className={log.color}>{log.type}</span>
+                  </div>
+                  <div className="pl-6 text-[8px] text-slate-600 opacity-80">
+                    {log.message}
+                  </div>
+                </div>
+              ))}
               {connections.filter(c => c.status === 'authorized').map((c, idx) => (
                 <React.Fragment key={c.id}>
                   <div className="flex gap-3 text-slate-500">

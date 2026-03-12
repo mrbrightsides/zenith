@@ -206,6 +206,7 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
       
       if (hasMFA) {
         setStepUpStatus('verified');
+        window.dispatchEvent(new CustomEvent('zenith-mfa-verified'));
         
         // Check for pending operation in session storage
         const savedOp = sessionStorage.getItem('zenith_pending_op');
@@ -427,6 +428,12 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">OpenFGA Fine-Grained Authorization</p>
         </div>
         <div className="flex items-center gap-4">
+          {stepUpStatus === 'verified' && (
+            <div className="flex items-center gap-3 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2 rounded-2xl animate-in fade-in zoom-in duration-500">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Authorized to Act</span>
+            </div>
+          )}
           <div className="glass px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Policy Engine Active</span>

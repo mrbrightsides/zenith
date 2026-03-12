@@ -68,6 +68,27 @@ export class GeminiService {
     return data.imageUrl;
   }
 
+  static async analyzeImage(imageBase64: string, mimeType: string, customPrompt?: string) {
+    const response = await fetch('/api/gemini/text', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        prompt: [
+          { inlineData: { data: imageBase64, mimeType: mimeType } },
+          { text: customPrompt || "Analyze this image in detail. Describe the subject, composition, lighting, and any notable details. If there is text, transcribe it. If there are people, describe their appearance and actions. Provide a comprehensive report." }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error || 'Failed to analyze image');
+    }
+
+    const data = await response.json();
+    return data.text;
+  }
+
   static async generateVideo(
     prompt: string, 
     aspectRatio: '16:9' | '9:16' = '16:9',
@@ -78,7 +99,7 @@ export class GeminiService {
     const response = await fetch('/api/gemini/video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, aspectRatio, resolution, style })
+      body: JSON.stringify({ prompt, aspectRatio, resolution, duration, style })
     });
 
     if (!response.ok) {

@@ -338,8 +338,16 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
 
         <div className="lg:col-span-8 space-y-12">
           {/* Dependency Graph Visualization */}
-          <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6">
-            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Neural Dependency Graph</h3>
+          <div className="glass p-8 rounded-[3rem] border border-white/5 space-y-6 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+              <i className="fas fa-microchip text-8xl"></i>
+            </div>
+            <div className="flex justify-between items-center">
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Neural Dependency Graph</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-widest bg-indigo-500/10 px-2 py-1 rounded-lg border border-indigo-500/20">OpenClaw Architecture</span>
+              </div>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-8 relative py-4">
               {tasks.map((task, idx) => (
                 <React.Fragment key={task.id}>
