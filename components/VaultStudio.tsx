@@ -31,7 +31,7 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
       { id: 'github', name: 'GitHub', icon: 'fa-github', status: 'authorized', scope: 'repo, user', lastUsed: '2 mins ago', connection: 'github' },
       { id: 'github-actions', name: 'GitHub Actions', icon: 'fa-play-circle', status: 'disconnected', scope: 'workflow, write:packages', lastUsed: 'Never', connection: 'github' },
       { id: 'google', name: 'Google Calendar', icon: 'fa-calendar-alt', status: 'pending', scope: 'calendar.events', lastUsed: 'Never', connection: 'google-oauth2' },
-      { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'playlist-read-private', lastUsed: 'Never', connection: 'spotify' },
+      { id: 'spotify', name: 'Spotify', icon: 'fa-spotify', status: 'disconnected', scope: 'Coming Soon', lastUsed: 'Never', connection: 'spotify' },
     ];
   });
 
@@ -271,19 +271,21 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
                       <p className="text-[10px] font-bold text-slate-400">{conn.lastUsed}</p>
                     </div>
                     <button 
-                      disabled={isRequesting}
+                      disabled={isRequesting || conn.id === 'spotify'}
                       onClick={() => {
                         if (conn.status === 'authorized') confirmDisconnect(conn.id);
                         else if (conn.status === 'expired' || conn.status === 'error') handleRefresh(conn.id);
                         else handleAuthorize(conn.id, conn.connection);
                       }}
                       className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
+                        conn.id === 'spotify' ? 'bg-slate-800 text-slate-600 cursor-not-allowed' :
                         conn.status === 'authorized' ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white' : 
                         conn.status === 'expired' || conn.status === 'error' ? 'bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-white' :
                         isRequesting ? 'bg-slate-800 text-slate-600 animate-pulse' : 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-500/20'
                       }`}
                     >
                       <i className={`fas ${
+                        conn.id === 'spotify' ? 'fa-lock' :
                         conn.status === 'authorized' ? 'fa-unlink' : 
                         (conn.status === 'expired' || conn.status === 'error') ? 'fa-sync-alt' :
                         (isRequesting ? 'fa-spinner fa-spin' : 'fa-link')

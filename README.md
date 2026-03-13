@@ -11,7 +11,7 @@ Zenith pushes the boundaries of what AI agents can do by acting as a secure **In
 ## 🛡️ The "Authorized to Act" Vision (Auth0)
 Zenith solves the security dilemma of sovereign AI by providing a governed layer for digital interaction:
 1.  **Secure Intermediary:** Zenith runs in a restricted environment, acting as the only bridge to the user's digital life.
-2.  **Auth0 Token Vault:** Seamless management of scoped OAuth tokens for **GitHub**, **Google Calendar**, and **Spotify**.
+2.  **Auth0 Token Vault:** Seamless management of scoped OAuth tokens for **GitHub**, **Google Calendar**, and **Spotify (Coming Soon)**.
 3.  **Neural Governance (OpenFGA):** Fine-grained authorization policies that define exactly what the agent can do.
 4.  **Step-up Authentication:** High-stakes operations trigger mandatory Auth0 MFA/Biometric handshakes.
 
@@ -37,7 +37,7 @@ The centerpiece of the challenge, featuring:
 ### 🛡️ Vault Studio (Authorized to Act)
 Zenith is now an **Intermediary Agent** capable of acting on your behalf:
 - **Auth0 Identity:** Secure, industry-standard authentication.
-- **Token Vault:** Secure management of scoped tokens for **GitHub**, **Google Calendar**, and **Spotify**.
+- **Token Vault:** Secure management of scoped tokens for **GitHub**, **Google Calendar**, and **Spotify (Coming Soon)**.
 - **Audit Trail:** Real-time logging of `TOKEN_RELEASED` events upon successful MFA verification.
 - **Authorized to Act Badge:** Visual confirmation in the UI when the agent is cleared for high-stakes operations.
 
@@ -81,7 +81,7 @@ For judges and reviewers, here is the recommended path to experience the full po
 - **AI Engine:** @google/genai (Gemini 3.1 Pro, Gemini 2.5 Flash, Gemini 3.1 Flash Image, Veo 3.1)
 - **Backend:** Node.js 24, Express 5, WebSocket (ws), Google Cloud Functions (2nd Gen)
 - **Frontend:** React 19, Tailwind CSS, Canvas 2D API, Framer Motion
-- **Infrastructure:** Google Cloud Run, Firestore (Agentic Memory), Secret Manager
+- **Infrastructure:** Google Cloud Run (Singapore), Firestore (Agentic Memory), Secret Manager
 - **Identity & Auth:** Auth0, OpenFGA
 
 ---

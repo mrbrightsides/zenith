@@ -61,6 +61,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [isVisionActive, setIsVisionActive] = useState(false);
   const [handshakeProgress, setHandshakeProgress] = useState(0);
   const [isHandshaking, setIsHandshaking] = useState(false);
   
@@ -69,7 +70,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   const analyserRef = useRef<AnalyserNode | null>(null);
   const outputAnalyserRef = useRef<AnalyserNode | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hiddenCanvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const visionIntervalRef = useRef<number | null>(null);
   const nextStartTimeRef = useRef(0);
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const sessionRef = useRef<any>(null);
@@ -436,7 +440,15 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       }
 
       const ai = new GoogleGenAI({ apiKey });
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true,
+        video: isVisionActive 
+      });
+
+      if (isVisionActive && videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+
       const inCtx = new AudioContext({ sampleRate: 16000 });
       const outCtx = new AudioContext({ sampleRate: 24000 });
       
@@ -464,6 +476,24 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
             source.connect(analyserRef.current!);
             source.connect(processor);
             processor.connect(inCtx.destination);
+
+            // Vision Streaming
+            if (isVisionActive) {
+              visionIntervalRef.current = window.setInterval(() => {
+                if (videoRef.current && hiddenCanvasRef.current) {
+                  const canvas = hiddenCanvasRef.current;
+                  const video = videoRef.current;
+                  const context = canvas.getContext('2d');
+                  if (context && video.readyState === video.HAVE_ENOUGH_DATA) {
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                    sessionPromise.then(s => s.sendRealtimeInput({ 
+                      media: { data: base64Data, mimeType: 'image/jpeg' } 
+                    }));
+                  }
+                }
+              }, 500); // 2 FPS for vision
+            }
           },
           onmessage: async (message: LiveServerMessage) => {
             lastActivityRef.current = Date.now();
@@ -571,6 +601,9 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
           
           CORE PERSONALITY: ${selectedAvatar.personality}.
           
+          VISION CAPABILITIES:
+          You can see the user in real-time if the Vision Link is active. Comment on what you see naturally—their environment, their expressions, or objects they show you.
+          
           VAULT CAPABILITIES:
           You can manage service connections in the Vault Studio. If a user asks to "connect to GitHub" or "unlink Spotify", use the 'manageVaultConnection' tool.
           
@@ -593,6 +626,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
   const disconnect = () => {
     setIsActive(false); setIsAwake(false); stopAISpeech();
+    if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
     if (inputContextRef.current) inputContextRef.current.close();
     if (audioContextRef.current) audioContextRef.current.close();
     setStatus('Protocol Offline');
@@ -654,6 +688,18 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
                   ))}
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Neural Modalities</label>
+                <button 
+                  disabled={isActive}
+                  onClick={() => setIsVisionActive(!isVisionActive)}
+                  className={`w-full p-3 rounded-xl border flex items-center justify-between transition-all ${isVisionActive ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-500' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+                >
+                  <span className="text-[10px] font-black uppercase tracking-widest">Vision Link</span>
+                  <i className={`fas ${isVisionActive ? 'fa-eye' : 'fa-eye-slash'}`}></i>
+                </button>
+              </div>
               
               <button 
                 onClick={isActive ? disconnect : startSession}
@@ -694,6 +740,25 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
             className={`relative glass rounded-[4rem] overflow-hidden aspect-video shadow-2xl border border-white/10 bg-slate-950 group cursor-pointer transition-all ${isReacting ? 'scale-[1.02] border-indigo-500/50' : ''}`}
           >
             <canvas ref={canvasRef} width={800} height={450} className="w-full h-full" />
+            <video ref={videoRef} autoPlay playsInline muted className="hidden" />
+            <canvas ref={hiddenCanvasRef} width={320} height={240} className="hidden" />
+            
+            {isActive && isVisionActive && (
+              <div className="absolute top-8 right-8 w-32 aspect-video rounded-2xl overflow-hidden border border-white/20 shadow-2xl z-10 bg-black">
+                <video 
+                  autoPlay 
+                  playsInline 
+                  muted 
+                  ref={(el) => { if (el && videoRef.current) el.srcObject = videoRef.current.srcObject; }}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute top-2 left-2 flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                  <span className="text-[6px] font-black text-white uppercase tracking-widest">Live Feed</span>
+                </div>
+              </div>
+            )}
+
             <div className="absolute inset-0 pointer-events-none opacity-20 bg-[radial-gradient(circle_at_center,_transparent_0%,_#000_100%)]"></div>
 
             {isActive && isAwake && (
