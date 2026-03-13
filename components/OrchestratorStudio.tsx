@@ -183,6 +183,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
       setResult(finalResult);
       
       // Save to Google Cloud (Firestore)
+      console.log("ZENITH: Orchestration complete. Sending to Cloud...", finalResult);
       await GoogleCloudService.saveCampaign(goal, finalResult.text, finalResult.imageUrl, finalResult.videoUrl);
       loadHistory();
     } catch (error: any) {

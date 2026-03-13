@@ -6,6 +6,12 @@
 
 Zenith pushes the boundaries of what AI agents can do by acting as a secure **Intermediary Agent**—bridging the gap between local, sovereign AI (like **OpenClaw**) and the digital world, while providing ultra-low latency voice/vision handshakes.
 
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
+![Auth0](https://img.shields.io/badge/Auth0-EB5424?style=for-the-badge&logo=auth0&logoColor=white)
+![OpenFGA](https://img.shields.io/badge/OpenFGA-Validated-6366f1?style=for-the-badge&logo=auth0&logoColor=white)
+![Deployment](https://img.shields.io/badge/CI/CD-Verified_Success-success?style=for-the-badge&logo=github-actions&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_3.1-Pro_Full_Orchestration-blue?style=for-the-badge&logo=google-gemini&logoColor=white)
+
 ---
 
 ## 🛡️ The "Authorized to Act" Vision (Auth0)
@@ -21,8 +27,8 @@ Zenith solves the security dilemma of sovereign AI by providing a governed layer
 Zenith orchestrates the world's most advanced AI models for real-time agency:
 1.  **Live Interaction:** **Gemini 2.5 Flash (Native Audio)** for ultra-low latency voice/vision handshakes.
 2.  **Cognitive Narrative:** **Gemini 3.1 Pro** reasoning engine grounded with real-time Google Search.
-3.  **Visual Asset Synthesis:** **Gemini 3.1 Flash Image** for cinematic-grade imagery and **Neural Vision** analysis.
-4.  **Temporal Motion Synthesis:** Automatic generation of 1080p video sequences via the **Veo 3.1** engine.
+3.  **Visual Asset Synthesis:** **Imagen 3 (Ultra-High Quality)** for cinematic-grade imagery and **Neural Vision** analysis.
+4.  **Temporal Motion Synthesis:** Automatic generation of 1080p video sequences via the **Veo (Kinetic Motion Engine)** engine.
 
 ---
 
@@ -50,7 +56,7 @@ Implementing **Fine-Grained Authorization (OpenFGA)**:
 ### 🖼️ Visual Studio (Neural Vision)
 Beyond generation, Zenith now features **Neural Analysis**:
 - **Analysis Mode:** Powered by Gemini Vision, upload any image or document for a comprehensive "Neural Analysis Report."
-- **Generation Mode:** High-fidelity synthesis using **Gemini 3.1 Flash Image** with style-tagging and history recall.
+- **Generation Mode:** High-fidelity synthesis with style-tagging and history recall.
 
 ### 🤝 The Trust Circle (Collaborative Agency)
 A real-time presence layer powered by **WebSockets**:
@@ -61,7 +67,7 @@ A real-time presence layer powered by **WebSockets**:
 ### 🎬 Morning Briefing (Cinematic Onboarding)
 A personalized start to your day:
 - **Auth0 Actions:** Triggers a cinematic summary upon the first login of the day.
-- **Temporal Synthesis:** Uses **Veo 3.1** to generate a briefing video summarizing your digital delta (GitHub/Calendar).
+- **Temporal Synthesis:** Uses **Veo** to generate a briefing video summarizing your digital delta (GitHub/Calendar).
 
 ---
 
@@ -78,11 +84,12 @@ For judges and reviewers, here is the recommended path to experience the full po
 
 ## ⚙️ Tech Stack & Topology
 
-- **AI Engine:** @google/genai (Gemini 3.1 Pro, Gemini 2.5 Flash, Gemini 3.1 Flash Image, Veo 3.1)
+- **AI Engine:** @google/genai (Gemini 3.1 Pro, Gemini 2.5 Flash, Imagen 3, Veo)
+- **CI/CD:** GitHub Actions (Automated Deployment to GCP) ✅
 - **Backend:** Node.js 24, Express 5, WebSocket (ws), Google Cloud Functions (2nd Gen)
-- **Frontend:** React 19, Tailwind CSS, Canvas 2D API, Framer Motion
-- **Infrastructure:** Google Cloud Run (Singapore), Firestore (Agentic Memory), Secret Manager
-- **Identity & Auth:** Auth0, OpenFGA
+- **Frontend:** React 19, Tailwind CSS, Framer Motion
+- **Infrastructure:** Google Cloud Run (US-Central), Firestore (Agentic Memory), Secret Manager
+- **Identity & Auth:** Auth0 (Authorized to Act), OpenFGA (Fine-Grained Authorization)
 
 ---
 
@@ -137,7 +144,7 @@ The application will be available at `http://localhost:8080`.
 
 #### 🎬 Morning Briefing
 1. On your first login of the day, the **Morning Briefing** modal will trigger automatically.
-2. Observe the **Veo 3.1** generated cinematic summary of your digital delta.
+2. Observe the **Veo** generated cinematic summary of your digital delta.
 
 ---
 
