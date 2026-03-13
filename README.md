@@ -2,15 +2,19 @@
 # ZENITH LIVE 🌌
 ### The Unified Agentic Ecosystem: Multimodal & Authorized Agency
 
+![Google Cloud](https://img.shields.io/badge/Google_Cloud-Integrated-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
+![Auth0](https://img.shields.io/badge/Auth0-Connected-EB5424?style=for-the-badge&logo=auth0&logoColor=white)
+![OpenFGA](https://img.shields.io/badge/OpenFGA-Validated-6366f1?style=for-the-badge&logo=auth0&logoColor=white)
+![Deployment](https://img.shields.io/badge/CI/CD-Verified_Success-success?style=for-the-badge&logo=github-actions&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini_3.1-Pro_Full_Orchestration-blue?style=for-the-badge&logo=google-gemini&logoColor=white)
+
 **ZENITH LIVE** is a high-stakes, dual-purpose agentic platform engineered for the **Gemini Live Agent Challenge** and the **Auth0 "Authorized to Act" Hackathon**. It demonstrates the peak of real-time multimodal interaction unified with secure, governed third-party agency.
 
 Zenith pushes the boundaries of what AI agents can do by acting as a secure **Intermediary Agent**—bridging the gap between local, sovereign AI (like **OpenClaw**) and the digital world, while providing ultra-low latency voice/vision handshakes.
 
-![Google Cloud](https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white)
-![Auth0](https://img.shields.io/badge/Auth0-EB5424?style=for-the-badge&logo=auth0&logoColor=white)
-![OpenFGA](https://img.shields.io/badge/OpenFGA-Validated-6366f1?style=for-the-badge&logo=auth0&logoColor=white)
-![Deployment](https://img.shields.io/badge/CI/CD-Verified_Success-success?style=for-the-badge&logo=github-actions&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini_3.1-Pro_Full_Orchestration-blue?style=for-the-badge&logo=google-gemini&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Production_Ready-success?style=flat-square)
+![Stack](https://img.shields.io/badge/Stack-Agentic_Mesh-blueviolet?style=flat-square)
+![Handshake](https://img.shields.io/badge/Multimodal-Voice_Vision-orange?style=flat-square)
 
 ---
 
