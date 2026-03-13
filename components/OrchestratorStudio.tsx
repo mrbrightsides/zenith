@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { GeminiService } from '../services/geminiService';
-import { GoogleCloudService } from '../services/firebaseService';
+import { GoogleCloudService, synchronizeCloudConfig } from '../services/firebaseService';
 
 interface OrchestrationResult {
   text: string;
@@ -41,6 +41,17 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
     { id: 't4', agent: 'animator', prompt: 'Create a product reveal animation', dependencies: ['t3'], status: 'queued', priority: 'low' },
   ]);
 
+  // Use a ref to track task statuses to avoid closure staleness in the orchestration loop
+  const taskStatusRef = React.useRef<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    const statuses: { [key: string]: string } = {};
+    tasks.forEach(t => {
+      statuses[t.id] = t.status;
+    });
+    taskStatusRef.current = statuses;
+  }, [tasks]);
+
   const fetchGithubData = async () => {
     // Simulating real-time GitHub data fetch
     // In a real app, this would use the GitHub API with a token from the Vault
@@ -60,7 +71,11 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
   }, [isProcessing]);
 
   useEffect(() => {
-    loadHistory();
+    const init = async () => {
+      await synchronizeCloudConfig();
+      loadHistory();
+    };
+    init();
     
     if (initialItem) {
       setGoal(initialItem.goal || initialItem.prompt || '');
@@ -99,16 +114,21 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
 
       // Execute tasks based on dependencies
       const executeTask = async (task: Task, isFallback = false) => {
+        console.log(`ZENITH: Starting task ${task.id} (${task.agent})`);
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active' } : t));
         
         // Wait for dependencies
-        for (const depId of task.dependencies) {
-          while (true) {
-            const dep = tasks.find(t => t.id === depId);
-            if (dep?.status === 'done') break;
-            if (dep?.status === 'failed') throw new Error(`Dependency ${depId} failed`);
-            await new Promise(r => setTimeout(r, 500));
+        if (task.dependencies.length > 0) {
+          console.log(`ZENITH: Task ${task.id} waiting for dependencies: ${task.dependencies.join(', ')}`);
+          for (const depId of task.dependencies) {
+            while (true) {
+              const status = taskStatusRef.current[depId];
+              if (status === 'done') break;
+              if (status === 'failed') throw new Error(`Dependency ${depId} failed`);
+              await new Promise(r => setTimeout(r, 1000));
+            }
           }
+          console.log(`ZENITH: Task ${task.id} dependencies cleared.`);
         }
 
         try {
@@ -134,9 +154,10 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
           }
 
           setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'done', result: taskResult } : t));
+          console.log(`ZENITH: Task ${task.id} completed.`);
           return taskResult;
         } catch (err) {
-          console.error(`Task ${task.id} failed`, err);
+          console.error(`ZENITH: Task ${task.id} failed`, err);
           if (!isFallback && task.fallbackAgent) {
             console.log(`Switching to fallback agent for ${task.id}`);
             return executeTask(task, true);
@@ -161,9 +182,14 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
       // Save to Google Cloud (Firestore)
       await GoogleCloudService.saveCampaign(goal, finalResult.text, finalResult.imageUrl, finalResult.videoUrl);
       loadHistory();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Orchestration failed", error);
-      alert("Neural chain interrupted. Check your API key or connection.");
+      const errorMsg = error.message || "";
+      if (errorMsg.includes("503") || errorMsg.includes("high demand")) {
+        alert("The Neural Grid is currently overloaded (High Demand). ZENITH is attempting to stabilize, but the chain was interrupted. Please wait 30 seconds and try again.");
+      } else {
+        alert("Neural chain interrupted. Check your API key or connection.");
+      }
       setCurrentStage(0);
     } finally {
       setIsProcessing(false);

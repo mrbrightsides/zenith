@@ -14,7 +14,7 @@ import MorningBriefing from './components/MorningBriefing';
 import LandingPage from './components/LandingPage';
 import Logo from './components/Logo';
 import { StudioTab } from './types';
-import { auth, GoogleCloudService } from './services/firebaseService';
+import { auth, GoogleCloudService, synchronizeCloudConfig } from './services/firebaseService';
 import { onAuthStateChanged, signOut, signInAnonymously } from 'firebase/auth';
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -102,15 +102,20 @@ const App: React.FC = () => {
 
   // Background Auth Handshake
   useEffect(() => {
-    if (!auth) return;
-    
-    // Listen for auth state
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
+    const initCloud = async () => {
+      await synchronizeCloudConfig();
+      
+      if (!auth) {
+        console.warn("ZENITH: Firebase Auth not available after sync.");
+        return;
+      }
 
-    // Attempt background anonymous login if not logged in
-    const backgroundAuth = async () => {
+      // Listen for auth state
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+      });
+
+      // Attempt background anonymous login if not logged in
       try {
         if (!auth.currentUser) {
           await signInAnonymously(auth);
@@ -118,10 +123,18 @@ const App: React.FC = () => {
       } catch (e) {
         console.warn("Background Cloud Link failed. Operating in Resilient Sandbox mode.");
       }
-    };
-    backgroundAuth();
 
-    return () => unsubscribe();
+      return unsubscribe;
+    };
+
+    let unsubscribeFn: (() => void) | undefined;
+    initCloud().then(unsub => {
+      if (unsub) unsubscribeFn = unsub;
+    });
+
+    return () => {
+      if (unsubscribeFn) unsubscribeFn();
+    };
   }, []);
 
   // Keyboard shortcut for search

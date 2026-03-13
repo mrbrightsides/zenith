@@ -38,18 +38,26 @@ export class GeminiService {
   }
 
   static async generateText(prompt: string, useSearch: boolean = false) {
-    const response = await fetch('/api/gemini/text', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, useSearch })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
 
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(err.error || 'Failed to generate text');
+    try {
+      const response = await fetch('/api/gemini/text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, useSearch }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to generate text');
+      }
+
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    return await response.json();
   }
 
   static async generateImage(prompt: string, model: string = 'gemini-2.5-flash-image') {
@@ -99,7 +107,7 @@ export class GeminiService {
     const response = await fetch('/api/gemini/video', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, aspectRatio, resolution, duration, style })
+      body: JSON.stringify({ prompt, aspectRatio, resolution, style })
     });
 
     if (!response.ok) {

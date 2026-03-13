@@ -5,7 +5,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { OpenFgaClient, CredentialsMethod } from '@openfga/sdk';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -139,21 +139,46 @@ async function startServer() {
     const ai = getGeminiClient();
     if (!ai) return res.status(500).json({ error: "Gemini API Key not configured on server." });
 
-    try {
-      const config: any = {
-        thinkingConfig: { thinkingBudget: 16384 },
-        systemInstruction: "You are ZENITH, a world-class AI Orchestrator and Authorized Intermediary. You have access to the Auth0 Token Vault to securely interact with third-party services (GitHub, Google, Spotify) on behalf of the user. Always prioritize security and user consent."
-      };
+    const generateWithRetry = async (modelName: string, budget: number, retries = 2): Promise<any> => {
+      try {
+        const config: any = {
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }, // Use LOW for faster response during high demand
+          systemInstruction: "You are ZENITH, a world-class AI Orchestrator and Authorized Intermediary. You have access to the Auth0 Token Vault to securely interact with third-party services (GitHub, Google, Spotify) on behalf of the user. Always prioritize security and user consent."
+        };
 
-      if (useSearch) {
-        config.tools = [{ googleSearch: {} }];
+        if (useSearch) {
+          config.tools = [{ googleSearch: {} }];
+        }
+
+        console.log(`ZENITH SERVER: Attempting generation with ${modelName} (Budget: ${budget})...`);
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config
+        });
+        return response;
+      } catch (error: any) {
+        const errorBody = error.message || "";
+        const is503 = errorBody.includes("503") || errorBody.includes("UNAVAILABLE") || errorBody.includes("high demand");
+        
+        if (is503 && retries > 0) {
+          console.warn(`ZENITH SERVER: Model ${modelName} busy. Retrying in 2s... (${retries} left)`);
+          await new Promise(r => setTimeout(r, 2000));
+          return generateWithRetry(modelName, budget, retries - 1);
+        }
+        
+        if (is503 && modelName === 'gemini-3.1-pro-preview') {
+          console.warn(`ZENITH SERVER: Pro model overloaded. Falling back to Flash...`);
+          return generateWithRetry('gemini-3-flash-preview', 0, 1);
+        }
+        
+        throw error;
       }
+    };
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: prompt,
-        config
-      });
+    try {
+      const response = await generateWithRetry('gemini-3.1-pro-preview', 4096);
+      console.log(`ZENITH SERVER: Text generation complete.`);
 
       const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
         title: chunk.web?.title || 'Source',
@@ -214,7 +239,7 @@ async function startServer() {
 
       const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
       // Fetch the video on the server to keep the key hidden
-      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
       const videoResponse = await fetch(`${downloadLink}&key=${apiKey}`);
       const buffer = await videoResponse.arrayBuffer();
       
@@ -229,8 +254,8 @@ async function startServer() {
     // Provide config to the frontend at runtime
     // Note: Gemini API Key is exposed here specifically for the Live API client-side requirement
     res.json({
-      isCloudConfigured: !!(process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY),
-      geminiApiKey: process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY,
+      isCloudConfigured: !!(process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY),
+      geminiApiKey: process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY,
       firebase: {
         projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
         apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,

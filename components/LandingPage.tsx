@@ -96,8 +96,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
         />
       </div>
 
-      <footer className="relative z-10 py-10 opacity-30 text-[10px] font-black uppercase tracking-[0.5em] text-center">
-        ZENITH LIVE © 2026 // AGENTIC INNOVATION PROTOCOL
+      <footer className="relative z-10 py-10 flex flex-col items-center gap-4">
+        <div className="opacity-30 text-[10px] font-black uppercase tracking-[0.5em] text-center">
+          ZENITH LIVE © 2026 // AGENTIC INNOVATION PROTOCOL
+        </div>
+        <div className="max-w-2xl text-center opacity-40 hover:opacity-100 transition-opacity duration-500">
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 leading-relaxed">
+            Gemini is an AI and can make mistakes. By using Zenith, you agree to our{' '}
+            <a href="https://elpeef.com/terms-zenith/" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-700 hover:text-white transition-colors">Terms of Service</a>
+            {' '}and{' '}
+            <a href="https://elpeef.com/privacy-zenith/" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-700 hover:text-white transition-colors">Privacy Policy</a>.
+          </p>
+        </div>
       </footer>
     </div>
   );
