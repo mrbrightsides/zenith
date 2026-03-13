@@ -1,11 +1,26 @@
-name: Zenith Deployment
+name: Zenith GCP Deployment
 on:
   push:
     branches: [ master ]
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and Deploy to Vercel
-        run: echo "ZENITH LIVE automated build triggered via GitHub Actions"
+
+      - name: Google Auth
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v2'
+
+      - name: 'Deploy to Cloud Run'
+        run: |
+          gcloud run deploy zenith-live \
+            --image gcr.io/${{ secrets.GCP_PROJECT_ID }}/zenith-live \
+            --region us-central1 \
+            --platform managed \
+            --allow-unauthenticated

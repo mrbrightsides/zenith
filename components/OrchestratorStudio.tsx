@@ -34,6 +34,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
   const [currentStage, setCurrentStage] = useState<number>(0); 
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [copied, setCopied] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([
     { id: 't1', agent: 'researcher', prompt: 'Gather industry trends for the objective', dependencies: [], status: 'queued', priority: 'high' },
     { id: 't2', agent: 'copywriter', prompt: 'Write a brand vision narrative based on research', dependencies: ['t1'], status: 'queued', priority: 'medium' },
@@ -422,35 +423,84 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                   <div className="space-y-6">
-                    <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Executive Strategy</span>
-                    <div className="prose prose-invert prose-sm">
-                      <p className="text-slate-300 leading-relaxed font-medium first-letter:text-5xl first-letter:font-black first-letter:text-indigo-500 first-letter:mr-3 first-letter:float-left whitespace-pre-wrap">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Executive Strategy</span>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(result.text);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        }}
+                        className="text-[8px] font-black uppercase text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-1"
+                      >
+                        <i className={`fas ${copied ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
+                        {copied ? 'Copied!' : 'Copy Text'}
+                      </button>
+                    </div>
+                    <div className="prose prose-invert prose-sm max-w-none">
+                      <p className="text-slate-300 leading-relaxed font-medium first-letter:text-5xl first-letter:font-black first-letter:text-indigo-500 first-letter:mr-3 first-letter:float-left whitespace-pre-wrap text-justify">
                         {result.text}
                       </p>
                     </div>
                   </div>
                   <div className="relative group">
                     <div className="absolute -inset-4 bg-indigo-500/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <img src={result.imageUrl} className="relative w-full rounded-[2.5rem] shadow-2xl border border-white/10" alt="Hero Asset" />
+                    <img 
+                      src={result.imageUrl} 
+                      className="relative w-full rounded-[2.5rem] shadow-2xl border border-white/10" 
+                      alt="Hero Asset" 
+                      referrerPolicy="no-referrer"
+                    />
+                    {result.imageUrl && (
+                      <button 
+                        onClick={() => GeminiService.downloadAsset(result.imageUrl, 'zenith-hero-asset.png')}
+                        className="absolute bottom-6 right-6 p-4 rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-indigo-600"
+                        title="Download Hero Asset"
+                      >
+                        <i className="fas fa-download"></i>
+                      </button>
+                    )}
                   </div>
                 </div>
 
                 <div className="space-y-8 pt-10 border-t border-white/10">
                    <div className="flex items-center justify-between">
-                     <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Temporal Asset Reveal</span>
-                     <span className="text-[8px] text-slate-500 uppercase font-bold">GCP Hosted Native Video</span>
+                     <div className="flex flex-col">
+                       <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Temporal Asset Reveal</span>
+                       <span className="text-[8px] text-slate-500 uppercase font-bold">GCP Hosted Native Video</span>
+                     </div>
+                     {result.videoUrl && (
+                       <button 
+                         onClick={() => GeminiService.downloadAsset(result.videoUrl, 'zenith-temporal-asset.mp4')}
+                         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-400 text-[9px] font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all"
+                       >
+                         <i className="fas fa-download"></i>
+                         Download Video
+                       </button>
+                     )}
                    </div>
-                   <div className="glass p-2 rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl">
+                   <div className="glass p-2 rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl relative group">
                      <video src={result.videoUrl} controls autoPlay loop className="w-full h-auto rounded-[3rem]" />
                    </div>
                 </div>
 
-                <div className="flex justify-center pt-8">
+                <div className="flex justify-center gap-4 pt-8">
                   <button 
                     onClick={() => window.print()}
+                    className="px-10 py-4 rounded-full border border-slate-500/30 bg-slate-500/10 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:bg-slate-500 hover:text-white transition-all shadow-xl"
+                  >
+                    <i className="fas fa-file-pdf mr-2"></i>
+                    Export Synthesis PDF
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (result.imageUrl) GeminiService.downloadAsset(result.imageUrl, 'zenith-hero.png');
+                      if (result.videoUrl) GeminiService.downloadAsset(result.videoUrl, 'zenith-video.mp4');
+                    }}
                     className="px-10 py-4 rounded-full border border-indigo-500/30 bg-indigo-500/10 text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:text-white transition-all shadow-xl"
                   >
-                    Export Synthesis PDF
+                    <i className="fas fa-cloud-download-alt mr-2"></i>
+                    Download All Assets
                   </button>
                 </div>
               </div>
