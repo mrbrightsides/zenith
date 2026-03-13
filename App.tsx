@@ -232,21 +232,29 @@ const App: React.FC = () => {
         <header className="h-20 px-10 flex items-center justify-between glass sticky top-0 z-[250] border-b border-white/5 shadow-2xl">
           <div className="flex items-center gap-5 text-sm font-medium">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isGCPConfigured ? 'bg-indigo-500 animate-pulse' : (isAuth0Authenticated ? 'bg-indigo-400 animate-pulse' : 'bg-amber-500')}`}></div>
+              <div 
+                className={`w-2 h-2 rounded-full animate-pulse transition-colors duration-500`}
+                style={{ backgroundColor: 'var(--zenith-theme-color, #6366f1)' }}
+              ></div>
               <span className="text-slate-500 uppercase tracking-widest font-black text-[10px]">
                 {isGCPConfigured ? (
-                  <span className="flex items-center gap-2 text-indigo-400">
+                  <span className="flex items-center gap-2 transition-colors duration-500" style={{ color: 'var(--zenith-theme-color, #818cf8)' }}>
                     Challenge Server Linked <i className="fas fa-check-circle text-[8px]"></i>
                   </span>
                 ) : (isAuth0Authenticated ? (
-                  <span className="flex items-center gap-2 text-indigo-300">
+                  <span className="flex items-center gap-2 transition-colors duration-500" style={{ color: 'var(--zenith-theme-color, #a5b4fc)' }}>
                     Identity Active <i className="fas fa-user-check text-[8px]"></i>
                   </span>
                 ) : 'Sandbox Environment')}
               </span>
             </div>
             <i className="fas fa-chevron-right text-[8px] text-slate-700"></i>
-            <span className="capitalize font-black tracking-[0.3em] text-indigo-500">{activeTab} Modality</span>
+            <span 
+              className="capitalize font-black tracking-[0.3em] transition-colors duration-500"
+              style={{ color: 'var(--zenith-theme-color, #6366f1)' }}
+            >
+              {activeTab} Modality
+            </span>
           </div>
           
           <div className="flex items-center gap-5 flex-1 max-w-xl mx-10">

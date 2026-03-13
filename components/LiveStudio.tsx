@@ -61,6 +61,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+
   const [isVisionActive, setIsVisionActive] = useState(false);
   const [handshakeProgress, setHandshakeProgress] = useState(0);
   const [isHandshaking, setIsHandshaking] = useState(false);
@@ -94,6 +95,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   const eyeJitterRef = useRef({ x: 0, y: 0 });
 
   const selectedAvatar = avatarStyles.find(s => s.id === selectedAvatarId) || avatarStyles[0];
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--zenith-theme-color', selectedAvatar.color);
+    document.documentElement.style.setProperty('--zenith-theme-glow', selectedAvatar.glow);
+  }, [selectedAvatar]);
 
   useEffect(() => {
     particlesRef.current = Array.from({ length: 50 }, () => ({
@@ -231,12 +237,13 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       }
 
       // STATE SPECIFIC MODIFIERS
+      const isPowered = isActive || isAwake;
       const breathFreq = agentState === 'LISTENING' ? 2.5 : 1.2;
       const breathAmp = agentState === 'LISTENING' ? 0.03 : 0.015;
       const breathScale = 1 + Math.sin(time * breathFreq) * breathAmp;
       
       const dynamicScale = breathScale + (agentState === 'RESPONDING' ? outAvg * 0.18 : 0);
-      const auraColor = isAwake ? selectedAvatar.glow : '#475569';
+      const auraColor = isPowered ? selectedAvatar.glow : '#475569';
       
       const shakeX = isReacting ? (Math.random() - 0.5) * 15 : 0;
       const shakeY = isReacting ? (Math.random() - 0.5) * 15 : 0;
@@ -247,18 +254,21 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
       // AURA GLOW
       const auraGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 400 * (1 + (outAvg + inAvg) * 0.4));
-      auraGrad.addColorStop(0, isReacting ? `${selectedAvatar.secondary}40` : `${auraColor}15`);
+      auraGrad.addColorStop(0, isReacting ? `${selectedAvatar.secondary}40` : `${auraColor}${isPowered ? '25' : '15'}`);
       auraGrad.addColorStop(1, 'transparent');
       ctx.fillStyle = auraGrad;
       ctx.fillRect(-centerX, -centerY, canvas.width, canvas.height);
 
       // BODY STROKE
-      ctx.shadowBlur = isAwake ? (15 + (outAvg * 130)) : 5;
-      ctx.shadowColor = isReacting ? selectedAvatar.secondary : auraColor;
+      ctx.shadowBlur = isPowered ? (15 + (outAvg * 130)) : 10;
+      ctx.shadowColor = isReacting ? selectedAvatar.secondary : (isPowered ? auraColor : `${selectedAvatar.color}44`);
       
       const grad = ctx.createLinearGradient(-100, -100, 100, 100);
-      grad.addColorStop(0, isAwake ? selectedAvatar.color : '#64748b');
-      grad.addColorStop(1, isAwake ? selectedAvatar.secondary : '#475569');
+      const color1 = isPowered ? selectedAvatar.color : `${selectedAvatar.color}88`;
+      const color2 = isPowered ? selectedAvatar.secondary : `${selectedAvatar.secondary}66`;
+      
+      grad.addColorStop(0, color1);
+      grad.addColorStop(1, color2);
       ctx.strokeStyle = grad;
       ctx.lineWidth = isReacting ? 10 : 5;
       ctx.lineCap = 'round';
@@ -340,8 +350,8 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
         eyeJitterRef.current.y *= 0.8;
       }
       
-      const eyeSize = isAwake ? (8 + inAvg * 28 + (isReacting ? 18 : 0)) : 5;
-      ctx.fillStyle = isAwake ? (isReacting ? '#fff' : selectedAvatar.glow) : '#64748b';
+      const eyeSize = isPowered ? (8 + inAvg * 28 + (isReacting ? 18 : 0)) : 5;
+      ctx.fillStyle = isPowered ? (isReacting ? '#fff' : selectedAvatar.glow) : `${selectedAvatar.glow}88`;
       
       // Left Eye
       ctx.beginPath();
@@ -354,7 +364,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       ctx.fill();
 
       // MOUTH RENDERING (Advanced Lip-Sync)
-      if (isAwake) {
+      if (isPowered) {
         ctx.beginPath();
         // Vowel-based frequency power
         const vowelFreq = outputData[8] / 255; 
@@ -703,7 +713,12 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               
               <button 
                 onClick={isActive ? disconnect : startSession}
-                className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all ${isActive ? 'bg-red-500/20 border-red-500/40 text-red-400' : 'bg-indigo-600 border-indigo-500 text-white shadow-xl shadow-indigo-500/20'}`}
+                className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all shadow-xl duration-500 ${
+                  isActive 
+                    ? 'bg-red-500/20 border-red-500/40 text-red-400' 
+                    : 'text-white'
+                }`}
+                style={!isActive ? { backgroundColor: selectedAvatar.color, borderColor: selectedAvatar.glow, boxShadow: `0 10px 25px -5px ${selectedAvatar.color}44` } : {}}
               >
                 <span className="text-[10px] font-black uppercase tracking-widest">{isActive ? 'Cut Frequency' : 'Initialize Link'}</span>
                 <i className={`fas ${isActive ? 'fa-unlink' : 'fa-link'}`}></i>
@@ -717,7 +732,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               <div className="space-y-3">
                  <div className="flex justify-between items-center">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">Gain</label>
-                    <span className="text-[10px] font-mono text-indigo-400">{visualizerSensitivity.toFixed(1)}x</span>
+                    <span className="text-[10px] font-mono transition-colors duration-500" style={{ color: selectedAvatar.color }}>{visualizerSensitivity.toFixed(1)}x</span>
                  </div>
                  <input type="range" min="0.5" max="3.0" step="0.1" value={visualizerSensitivity} onChange={(e) => setVisualizerSensitivity(parseFloat(e.target.value))} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
               </div>
@@ -737,7 +752,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
           <div 
             onMouseMove={handleMouseMove}
             onClick={handleAvatarClick}
-            className={`relative glass rounded-[4rem] overflow-hidden aspect-video shadow-2xl border border-white/10 bg-slate-950 group cursor-pointer transition-all ${isReacting ? 'scale-[1.02] border-indigo-500/50' : ''}`}
+            className={`relative glass rounded-[4rem] overflow-hidden aspect-video shadow-2xl border bg-slate-950 group cursor-pointer transition-all duration-500 ${
+              isReacting ? 'scale-[1.02]' : ''
+            }`}
+            style={{ borderColor: isReacting ? selectedAvatar.color : 'rgba(255,255,255,0.1)' }}
           >
             <canvas ref={canvasRef} width={800} height={450} className="w-full h-full" />
             <video ref={videoRef} autoPlay playsInline muted className="hidden" />
@@ -789,13 +807,16 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
             
             <div className="absolute top-12 left-12 flex flex-col gap-1 pointer-events-none">
                 <span className="text-[8px] font-black uppercase tracking-[0.4em] text-slate-700">{isAwake ? 'PROTOCOL ACTIVE' : 'PROTOCOL STANDBY'}</span>
-                <span className="text-[9px] font-bold text-indigo-500/60 uppercase">{selectedAvatar.label} Projection</span>
+                <span className="text-[9px] font-bold uppercase transition-colors duration-500" style={{ color: selectedAvatar.color }}>{selectedAvatar.label} Projection</span>
             </div>
           </div>
 
           <div className="glass p-10 rounded-[4rem] min-h-[300px] border border-white/5 flex flex-col gap-6 shadow-2xl bg-white/5">
             <div className="flex items-center justify-between border-b border-white/5 pb-6">
-              <h4 className="text-[12px] font-black uppercase tracking-[0.5em] text-slate-500 flex items-center gap-4"><i className="fas fa-terminal text-indigo-500"></i> Signal Log</h4>
+              <h4 className="text-[12px] font-black uppercase tracking-[0.5em] text-slate-500 flex items-center gap-4">
+                <i className="fas fa-terminal transition-colors duration-500" style={{ color: selectedAvatar.color }}></i> 
+                Signal Log
+              </h4>
               <button onClick={() => setTranscriptions([])} className="text-[8px] font-black uppercase text-slate-600 hover:text-red-400 transition-colors">Wipe History</button>
             </div>
             <div className="space-y-6 max-h-[400px] overflow-y-auto pr-4 custom-scrollbar">
