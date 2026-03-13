@@ -49,7 +49,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, theme }) => 
 
       <div className="mt-auto space-y-4">
         <div className={`p-4 glass rounded-2xl text-[8px] text-center border border-white/5 uppercase tracking-widest leading-relaxed ${theme === 'light' ? 'text-slate-500' : 'text-slate-500'}`}>
-          <p className="mb-2 opacity-50">Gemini is an AI and can make mistakes.</p>
+          <p className="mb-2 opacity-50">Zenith is an AI and can make mistakes.</p>
           <div className="flex flex-col gap-1">
             <a href="https://elpeef.com/terms-zenith/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline decoration-slate-800">Terms of Service</a>
             <a href="https://elpeef.com/privacy-zenith/" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline decoration-slate-800">Privacy Policy</a>

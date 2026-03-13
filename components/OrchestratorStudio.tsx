@@ -114,6 +114,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
       setTasks(prev => prev.map(t => ({ ...t, status: 'queued', result: undefined })));
 
       // Execute tasks based on dependencies
+      const resultsMap: { [key: string]: string } = {};
       const executeTask = async (task: Task, isFallback = false) => {
         console.log(`ZENITH: Starting task ${task.id} (${task.agent})`);
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active' } : t));
@@ -154,6 +155,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
             taskResult = await GeminiService.generateVideo(`${task.prompt} for ${goal}`, '16:9', '720p', 5, 'Cinematic');
           }
 
+          resultsMap[task.id] = taskResult;
           setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'done', result: taskResult } : t));
           console.log(`ZENITH: Task ${task.id} completed.`);
           return taskResult;
@@ -173,9 +175,9 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
       await Promise.all(taskPromises);
 
       const finalResult = {
-        text: tasks.find(t => t.agent === 'copywriter')?.result || '',
-        imageUrl: tasks.find(t => t.agent === 'illustrator')?.result || '',
-        videoUrl: tasks.find(t => t.agent === 'animator')?.result || ''
+        text: resultsMap['t2'] || resultsMap[tasks.find(t => t.agent === 'copywriter')?.id || ''] || '',
+        imageUrl: resultsMap['t3'] || resultsMap[tasks.find(t => t.agent === 'illustrator')?.id || ''] || '',
+        videoUrl: resultsMap['t4'] || resultsMap[tasks.find(t => t.agent === 'animator')?.id || ''] || ''
       };
 
       setResult(finalResult);
@@ -425,32 +427,47 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Executive Strategy</span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(result.text);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }}
-                        className="text-[8px] font-black uppercase text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-1"
-                      >
-                        <i className={`fas ${copied ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
-                        {copied ? 'Copied!' : 'Copy Text'}
-                      </button>
+                      {result.text && (
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(result.text);
+                            setCopied(true);
+                            setTimeout(() => setCopied(false), 2000);
+                          }}
+                          className="text-[8px] font-black uppercase text-slate-500 hover:text-blue-400 transition-colors flex items-center gap-1"
+                        >
+                          <i className={`fas ${copied ? 'fa-check text-emerald-500' : 'fa-copy'}`}></i>
+                          {copied ? 'Copied!' : 'Copy Text'}
+                        </button>
+                      )}
                     </div>
                     <div className="prose prose-invert prose-sm max-w-none">
-                      <p className="text-slate-300 leading-relaxed font-medium first-letter:text-5xl first-letter:font-black first-letter:text-indigo-500 first-letter:mr-3 first-letter:float-left whitespace-pre-wrap text-justify">
-                        {result.text}
-                      </p>
+                      {result.text ? (
+                        <p className="text-slate-300 leading-relaxed font-medium first-letter:text-5xl first-letter:font-black first-letter:text-indigo-500 first-letter:mr-3 first-letter:float-left whitespace-pre-wrap text-justify">
+                          {result.text}
+                        </p>
+                      ) : (
+                        <div className="h-32 flex items-center justify-center border border-dashed border-white/5 rounded-2xl text-slate-600 text-[10px] uppercase font-bold tracking-widest">
+                          Narrative pending...
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="relative group">
                     <div className="absolute -inset-4 bg-indigo-500/20 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                    <img 
-                      src={result.imageUrl} 
-                      className="relative w-full rounded-[2.5rem] shadow-2xl border border-white/10" 
-                      alt="Hero Asset" 
-                      referrerPolicy="no-referrer"
-                    />
+                    {result.imageUrl ? (
+                      <img 
+                        src={result.imageUrl} 
+                        className="relative w-full rounded-[2.5rem] shadow-2xl border border-white/10" 
+                        alt="Hero Asset" 
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="aspect-square w-full rounded-[2.5rem] bg-slate-900/50 border border-dashed border-white/10 flex flex-col items-center justify-center gap-4 text-slate-600">
+                        <i className="fas fa-image text-4xl opacity-20"></i>
+                        <span className="text-[10px] font-black uppercase tracking-widest">Visual Asset Pending</span>
+                      </div>
+                    )}
                     {result.imageUrl && (
                       <button 
                         onClick={() => GeminiService.downloadAsset(result.imageUrl, 'zenith-hero-asset.png')}
@@ -480,7 +497,14 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                      )}
                    </div>
                    <div className="glass p-2 rounded-[3.5rem] border border-white/5 overflow-hidden shadow-2xl relative group">
-                     <video src={result.videoUrl} controls autoPlay loop className="w-full h-auto rounded-[3rem]" />
+                     {result.videoUrl ? (
+                       <video src={result.videoUrl} controls autoPlay loop className="w-full h-auto rounded-[3rem]" />
+                     ) : (
+                       <div className="aspect-video w-full rounded-[3rem] bg-slate-900/50 flex flex-col items-center justify-center gap-4 text-slate-600">
+                         <i className="fas fa-film text-4xl opacity-20"></i>
+                         <span className="text-[10px] font-black uppercase tracking-widest">Temporal Asset Pending</span>
+                       </div>
+                     )}
                    </div>
                 </div>
 
