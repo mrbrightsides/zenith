@@ -180,6 +180,10 @@ const App: React.FC = () => {
     if (auth) {
       await signOut(auth);
     }
+    // Clear briefing session state so it shows again on next login
+    const userId = auth0User?.sub || user?.uid || 'guest';
+    sessionStorage.removeItem(`zenith_session_briefing_${userId}`);
+    
     auth0Logout({ logoutParams: { returnTo: window.location.origin } });
     setForceSandbox(false);
     localStorage.removeItem('zenith_force_sandbox');
@@ -373,7 +377,7 @@ const App: React.FC = () => {
         </div>
 
         {isAuth0Authenticated && <TrustCircle users={trustCircleUsers} theme={theme} />}
-        {isAuth0Authenticated && <MorningBriefing theme={theme} />}
+        {!isLanding && (user || isAuth0Authenticated) && <MorningBriefing theme={theme} externalUser={user} />}
       </main>
 
       {/* Profile Modal & Search Overlay Click-Away */}

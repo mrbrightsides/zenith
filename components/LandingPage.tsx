@@ -27,13 +27,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
             <h1 className="text-8xl font-black tracking-tighter leading-none">
               ZENITH <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-blue-500">LIVE</span>
             </h1>
-            <p className="text-xl text-slate-500 font-bold tracking-[0.4em] uppercase">The Multimodal Agentic Orchestrator</p>
+            <p className="text-xl text-slate-500 font-bold tracking-[0.4em] uppercase">The Governed Multimodal Agency</p>
           </div>
         </div>
 
         <div className="max-w-3xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
           <p className="text-2xl text-slate-400 leading-relaxed font-light">
-            Built for the <span className="text-white font-semibold">Gemini Live Agent</span>. ZENITH LIVE unifies <span className="text-white font-semibold">Gemini 3 Pro</span> and <span className="text-white font-semibold">Live Multimodal API</span> into a single, cohesive, real-time agent experience.
+            Agentic Orchestrator built with Enterprise-Grade Security. Seamlessly bridging <span className="text-white font-semibold">Gemini</span> with <span className="text-white font-semibold">Auth0 Governance</span> and to act on your behalf—securely and autonomously. Experience the future of intelligent automation.
           </p>
         </div>
 
@@ -47,7 +47,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
               Launch Agent Control
             </span>
           </button>
-          <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-600">Secure Protocol Established // Gemini Agent Challenge v1.0.0</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-600">Secure Protocol Established</span>
         </div>
       </div>
 
@@ -64,7 +64,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
         <FeatureCard 
           icon="fa-pen-nib" 
           title="Cognitive Layer" 
-          desc="Advanced reasoning and search grounding powered by Gemini 3 Pro with strategic thinking."
+          desc="Advanced reasoning and search grounding powered by Gemini 3.1 Pro with strategic thinking."
           color="blue"
         />
         <FeatureCard 
@@ -87,13 +87,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
           color="pink"
           badge="Live Agent"
         />
-        <FeatureCard 
-          icon="fa-fingerprint" 
-          title="Neural Governance" 
-          desc="OpenFGA Fine-Grained Authorization. Policy-based agency for high-stakes digital operations."
-          color="emerald"
-          badge="Governance"
-        />
       </div>
 
       <footer className="relative z-10 py-10 flex flex-col items-center gap-4">
@@ -102,7 +95,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
         </div>
         <div className="max-w-2xl text-center opacity-40 hover:opacity-100 transition-opacity duration-500">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 leading-relaxed">
-            Gemini is an AI and can make mistakes. By using Zenith, you agree to our{' '}
+            Zenith is an AI and can make mistakes. By using Zenith, you agree to our{' '}
             <a href="https://elpeef.com/terms-zenith/" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-700 hover:text-white transition-colors">Terms of Service</a>
             {' '}and{' '}
             <a href="https://elpeef.com/privacy-zenith/" target="_blank" rel="noopener noreferrer" className="underline decoration-slate-700 hover:text-white transition-colors">Privacy Policy</a>.

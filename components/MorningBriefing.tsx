@@ -5,11 +5,17 @@ import { GeminiService } from '../services/geminiService';
 
 interface MorningBriefingProps {
   theme: 'dark' | 'light';
+  externalUser?: any;
 }
 
-const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
-  const { user, isAuthenticated } = useAuth0();
+const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme, externalUser }) => {
+  const { user: auth0User, isAuthenticated: isAuth0Authenticated } = useAuth0();
   const [isOpen, setIsOpen] = useState(false);
+  
+  // Use either Auth0 user or the external (Firebase/Anonymous) user
+  const activeUser = auth0User || externalUser;
+  const isAuthenticated = isAuth0Authenticated || !!externalUser;
+
   const [status, setStatus] = useState<'analyzing' | 'generating' | 'ready'>('analyzing');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [summary, setSummary] = useState('');
@@ -17,17 +23,18 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
   const [briefingData, setBriefingData] = useState({ github: 0, calendar: 0 });
 
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const lastBriefing = localStorage.getItem(`zenith_briefing_${user.sub}`);
-      const today = new Date().toDateString();
+    if (isAuthenticated && activeUser) {
+      // Use sessionStorage so it shows up once per session (after login/refresh)
+      const userId = activeUser.sub || activeUser.uid || 'guest';
+      const sessionBriefing = sessionStorage.getItem(`zenith_session_briefing_${userId}`);
       
-      if (lastBriefing !== today) {
+      if (!sessionBriefing) {
         setIsOpen(true);
         generateBriefing();
-        localStorage.setItem(`zenith_briefing_${user.sub}`, today);
+        sessionStorage.setItem(`zenith_session_briefing_${userId}`, 'true');
       }
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, activeUser]);
 
   const generateBriefing = async () => {
     setStatus('analyzing');
@@ -48,7 +55,8 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
     
     // 3. Generate Summary via Proxied Gemini Service
     try {
-      const prompt = `Generate a 2-sentence ${currentGreeting.toLowerCase()} briefing for ${user?.name}. 
+      const userName = activeUser?.given_name || activeUser?.name || (activeUser?.isAnonymous ? 'Challenge Judge' : 'Operator');
+      const prompt = `Generate a 2-sentence ${currentGreeting.toLowerCase()} briefing for ${userName}. 
       The current time is ${new Date().toLocaleTimeString()} on ${new Date().toLocaleDateString()}.
       Mention that ${mockGithub} GitHub issues are pending review and ${mockCalendar} meetings are scheduled for today.
       Keep it professional, agentic, and strikingly human. Use a tone that feels like a high-end digital concierge.`;
@@ -57,7 +65,8 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
       setSummary(response.text || 'Briefing analysis complete.');
     } catch (err) {
       console.error("Briefing generation failed:", err);
-      setSummary(`Welcome back, ${user?.given_name || 'User'}. Your agentic workspace is synchronized and ready for orchestration.`);
+      const userName = activeUser?.given_name || activeUser?.name || (activeUser?.isAnonymous ? 'Judge' : 'User');
+      setSummary(`Welcome back, ${userName}. Your agentic workspace is synchronized and ready for orchestration.`);
     }
 
     setStatus('generating');
@@ -117,14 +126,18 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme }) => {
           <div className="p-12 flex flex-col justify-between bg-slate-900/50">
             <div className="space-y-8">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">Auth0 Action Triggered</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">
+                  {activeUser?.isAnonymous ? 'Judge Access Verified' : 'Auth0 Action Triggered'}
+                </span>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{new Date().toLocaleDateString()}</span>
               </div>
 
               <div className="space-y-4">
                 <h2 className="text-4xl font-black tracking-tighter leading-tight italic uppercase">
                   {greeting}, <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-blue-400">{user?.given_name || user?.name}</span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-blue-400">
+                    {activeUser?.given_name || activeUser?.name || (activeUser?.isAnonymous ? 'Challenge Judge' : 'Operator')}
+                  </span>
                 </h2>
                 <div className="h-px w-20 bg-indigo-500/50"></div>
               </div>
