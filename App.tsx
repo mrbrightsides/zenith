@@ -234,15 +234,23 @@ const App: React.FC = () => {
   }
 
   if (isLanding) {
-    return <LandingPage theme={theme} onEnter={() => isAuth0Authenticated ? setIsLanding(false) : loginWithRedirect()} />;
+    return (
+      <LandingPage 
+        theme={theme} 
+        onEnter={() => isAuth0Authenticated ? setIsLanding(false) : loginWithRedirect()} 
+        onJudgeEnter={() => setIsLanding(false)}
+      />
+    );
   }
 
   return (
     <div className={`min-h-screen font-sans selection:bg-indigo-500/30 transition-colors duration-300 animate-in fade-in duration-1000 ${theme === 'light' ? 'bg-slate-50 text-slate-900' : 'bg-slate-950 text-slate-50'}`}>
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} />
+      <div className="no-print">
+        <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} theme={theme} user={user} />
+      </div>
       
       <main className="pl-64 min-h-screen relative">
-        <header className="h-20 px-10 flex items-center justify-between glass sticky top-0 z-[250] border-b border-white/5 shadow-2xl">
+        <header className="h-20 px-10 flex items-center justify-between glass sticky top-0 z-[250] border-b border-white/5 shadow-2xl no-print">
           <div className="flex items-center gap-5 text-sm font-medium">
             <div className="flex items-center gap-2">
               <div 
@@ -317,6 +325,12 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-5">
+            {user?.isAnonymous && (
+              <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black uppercase tracking-widest animate-pulse">
+                <i className="fas fa-user-tie"></i>
+                Judge Mode Active
+              </div>
+            )}
             <div className="h-10 w-[1px] bg-slate-800 mx-1"></div>
             
             <button 
