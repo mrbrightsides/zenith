@@ -66,6 +66,9 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   const [handshakeProgress, setHandshakeProgress] = useState(0);
   const [isHandshaking, setIsHandshaking] = useState(false);
   
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -79,6 +82,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const sessionRef = useRef<any>(null);
   const mouseRef = useRef({ x: 400, y: 225 });
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<number | null>(null);
+  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
 
   const userTextRef = useRef('');
   const modelTextRef = useRef('');
@@ -467,6 +475,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       analyserRef.current = inCtx.createAnalyser();
       outputAnalyserRef.current = outCtx.createAnalyser();
 
+      // Setup audio destination for recording
+      const dest = outCtx.createMediaStreamDestination();
+      audioDestinationRef.current = dest;
+
       const sessionPromise = ai.live.connect({
         model: 'gemini-2.5-flash-native-audio-preview-09-2025',
         callbacks: {
@@ -553,6 +565,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               }
             }
             
+            if (message.serverContent?.interrupted) {
+              console.log("ZENITH: Signal Interrupted by Operator");
+              stopAISpeech();
+            }
+
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && audioContextRef.current && !isPaused) {
               const ctx = audioContextRef.current;
@@ -562,6 +579,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               source.buffer = buffer;
               source.connect(outputAnalyserRef.current!);
               source.connect(ctx.destination);
+              if (audioDestinationRef.current) source.connect(audioDestinationRef.current);
               source.addEventListener('ended', () => { sourcesRef.current.delete(source); });
               source.start(nextStartTimeRef.current);
               nextStartTimeRef.current += buffer.duration;
@@ -635,11 +653,67 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   };
 
   const disconnect = () => {
+    if (isRecording) stopRecording();
     setIsActive(false); setIsAwake(false); stopAISpeech();
     if (visionIntervalRef.current) clearInterval(visionIntervalRef.current);
     if (inputContextRef.current) inputContextRef.current.close();
     if (audioContextRef.current) audioContextRef.current.close();
     setStatus('Protocol Offline');
+  };
+
+  const startRecording = () => {
+    if (!canvasRef.current || !audioDestinationRef.current) return;
+    
+    recordedChunksRef.current = [];
+    const canvasStream = canvasRef.current.captureStream(30);
+    const audioStream = audioDestinationRef.current.stream;
+    
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...audioStream.getAudioTracks()
+    ]);
+    
+    const recorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus' });
+    
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) recordedChunksRef.current.push(e.data);
+    };
+    
+    recorder.onstop = () => {
+      const blob = new Blob(recordedChunksRef.current, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `zenith-projection-${Date.now()}.webm`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+    
+    recorder.start();
+    mediaRecorderRef.current = recorder;
+    setIsRecording(true);
+    setRecordingDuration(0);
+    
+    recordingTimerRef.current = window.setInterval(() => {
+      setRecordingDuration(prev => prev + 1);
+    }, 1000);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -781,8 +855,16 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
             {isActive && isAwake && (
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                <button onClick={(e) => { e.stopPropagation(); togglePausePlayback(); }} className="w-16 h-16 rounded-full glass border border-white/20 flex items-center justify-center text-white hover:scale-110 transition-all shadow-2xl pointer-events-auto"><i className={`fas ${isPaused ? 'fa-play pl-1' : 'fa-pause'} text-xl`}></i></button>
-                <button onClick={(e) => { e.stopPropagation(); stopAISpeech(); }} className="w-16 h-16 rounded-full glass border border-white/20 flex items-center justify-center text-red-500 hover:scale-110 transition-all shadow-2xl pointer-events-auto"><i className="fas fa-stop text-xl"></i></button>
+                <button onClick={(e) => { e.stopPropagation(); togglePausePlayback(); }} className="w-16 h-16 rounded-full glass border border-white/20 flex items-center justify-center text-white hover:scale-110 transition-all shadow-2xl pointer-events-auto" title={isPaused ? "Resume Output" : "Pause Output"}><i className={`fas ${isPaused ? 'fa-play pl-1' : 'fa-pause'} text-xl`}></i></button>
+                <button onClick={(e) => { e.stopPropagation(); isRecording ? stopRecording() : startRecording(); }} className={`w-16 h-16 rounded-full glass border border-white/20 flex items-center justify-center hover:scale-110 transition-all shadow-2xl pointer-events-auto ${isRecording ? 'text-red-500 animate-pulse' : 'text-emerald-400'}`} title={isRecording ? "Stop Recording" : "Record Projection"}><i className={`fas ${isRecording ? 'fa-video-slash' : 'fa-video'} text-xl`}></i></button>
+                <button onClick={(e) => { e.stopPropagation(); stopAISpeech(); }} className="w-16 h-16 rounded-full glass border border-white/20 flex items-center justify-center text-red-500 hover:scale-110 transition-all shadow-2xl pointer-events-auto" title="Stop Speech"><i className="fas fa-stop text-xl"></i></button>
+              </div>
+            )}
+
+            {isRecording && (
+              <div className="absolute top-8 left-8 flex items-center gap-3 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-red-500/30">
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">Recording {formatDuration(recordingDuration)}</span>
               </div>
             )}
 
