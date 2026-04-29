@@ -43,10 +43,31 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
   // Auto-authorize if we return authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-      // If we are authenticated, we assume the pending connection (usually Google in this demo flow) is now authorized
-      setConnections(prev => prev.map(c => 
-        (c.id === 'google' && c.status === 'pending') ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c
-      ));
+      // Check for MFA success (simulated or real via ACR check)
+      // In a real app, you'd check the 'acr' claim in the ID token
+      const checkMFA = async () => {
+        const pendingId = localStorage.getItem('zenith_pending_connection');
+        if (pendingId) {
+          setConnections(prev => prev.map(c => 
+            c.id === pendingId ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c
+          ));
+          localStorage.removeItem('zenith_pending_connection');
+        } else {
+          // Fallback for the demo 'google' flow if no pendingId
+          setConnections(prev => prev.map(c => 
+            (c.id === 'google' && c.status === 'pending') ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c
+          ));
+        }
+
+        // If we just came back from an MFA challenge, emit the event
+        // For the hackathon demo, we can check a temporary flag
+        if (localStorage.getItem('zenith_mfa_in_progress')) {
+          localStorage.removeItem('zenith_mfa_in_progress');
+          window.dispatchEvent(new CustomEvent('zenith-mfa-verified'));
+        }
+      };
+      
+      checkMFA();
     }
   }, [isAuthenticated]);
 
@@ -59,7 +80,7 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
         id: Date.now().toString(),
         time: new Date().toLocaleTimeString([], { hour12: false }),
         type: 'TOKEN_RELEASED',
-        message: 'SOVEREIGN_CREDENTIALS_RELEASED_VIA_MFA',
+        message: 'SOVEREIGN_CREDENTIALS_RELEASED_VIA_MFA_VERIFICATION',
         color: 'text-emerald-400'
       };
       setLogs(prev => [newLog, ...prev].slice(0, 10));
@@ -117,14 +138,23 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
     }, 2000);
   };
 
-  const handleAuthorize = (id: string, connection?: string) => {
+  const handleAuthorize = async (id: string, connection?: string) => {
     if (connection) {
-      loginWithRedirect({
-        authorizationParams: {
-          connection: connection,
-          prompt: 'consent'
-        }
-      });
+      // Save pending connection ID to localStorage to restore state after redirect
+      localStorage.setItem('zenith_pending_connection', id);
+      
+      const conn = connections.find(c => c.id === id);
+      try {
+        await loginWithRedirect({
+          authorizationParams: {
+            connection: connection,
+            prompt: 'consent',
+            scope: `openid profile email ${conn?.scope || ''}`
+          }
+        });
+      } catch (err) {
+        console.error("Auth0 Redirect Error:", err);
+      }
       return;
     }
     
@@ -133,6 +163,23 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
       setConnections(prev => prev.map(c => c.id === id ? { ...c, status: 'authorized', lastUsed: 'Just now' } : c));
       setIsRequesting(false);
     }, 1500);
+  };
+
+  const triggerMFAStepUp = async () => {
+    setIsRequesting(true);
+    localStorage.setItem('zenith_mfa_in_progress', 'true');
+    // In Auth0, we trigger MFA by requesting a specific ACR (Authentication Context Class Reference)
+    try {
+      await loginWithRedirect({
+        authorizationParams: {
+          acr_values: 'http://schemas.openid.net/pape/policies/2007/06/multi-factor',
+          prompt: 'login' 
+        }
+      });
+    } catch (err) {
+      console.error("MFA Step-up Error:", err);
+      setIsRequesting(false);
+    }
   };
 
   const handleDisconnect = (id: string) => {
@@ -187,6 +234,13 @@ const VaultStudio: React.FC<VaultStudioProps> = ({ theme }) => {
           <p className="text-[10px] font-black uppercase tracking-[0.5em] text-indigo-500">Sovereign AI Bridge & Token Vault</p>
         </div>
         <div className="flex items-center gap-4">
+          <button 
+            onClick={triggerMFAStepUp}
+            className="glass px-4 py-2 rounded-xl border border-amber-500/20 flex items-center gap-3 hover:bg-amber-500/10 transition-all group"
+          >
+            <i className="fas fa-shield-check text-amber-500 group-hover:scale-110 transition-transform"></i>
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-500">Trigger MFA Step-up</span>
+          </button>
           <div className="glass px-4 py-2 rounded-xl border border-white/5 flex items-center gap-3">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intermediary Active</span>

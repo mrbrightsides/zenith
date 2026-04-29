@@ -2,6 +2,13 @@ name: Zenith GCP Deployment
 on:
   push:
     branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+  packages: write
+  id-token: write
 
 jobs:
   deploy:

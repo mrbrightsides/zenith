@@ -78,7 +78,9 @@ const TrustCircle: React.FC<TrustCircleProps> = ({ users, theme }) => {
       <div className="glass px-6 py-3 rounded-3xl border border-white/10 flex items-center gap-4 shadow-2xl">
         <div className="flex flex-col">
           <span className="text-[10px] font-black uppercase tracking-[0.3em] text-emerald-500">Trust Circle</span>
-          <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">{users.length} Agents Online</span>
+          <span className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+            {users.length} {users.length === 1 ? 'Agent' : 'Agents'} Online
+          </span>
         </div>
         <div className="w-8 h-8 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400 border border-emerald-500/30">
           <i className="fas fa-users"></i>

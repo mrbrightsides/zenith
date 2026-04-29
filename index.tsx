@@ -17,7 +17,7 @@ root.render(
       clientId="xB2btrNgfJShea0UKj4Jcmi3guBHQ5IZ"
       authorizationParams={{ 
         redirect_uri: window.location.origin,
-        scope: "openid profile email repo read:user https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events"
+        scope: "openid profile email repo read:user workflow write:packages https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events"
       }}
     >
       <App />

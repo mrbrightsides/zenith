@@ -30,10 +30,20 @@ export class GeminiService {
   }
 
   static async requestVaultToken(service: string) {
-    console.log(`[VAULT] Initiating secure handshake for ${service}...`);
+    // This method represents the "Authorized Intermediary" pattern.
+    // The LLM (Gemini) requests an action, and this service (the Intermediary)
+    // retrieves the necessary token from the Auth0 Vault.
+    // CRITICAL: The raw token is NEVER sent to the LLM.
+    console.log(`[ZENITH VAULT] Initiating secure handshake for ${service}...`);
+    
+    // In a production Auth0 setup, we would use getAccessTokenSilently() here
+    // with the appropriate audience and scopes.
     await new Promise(resolve => setTimeout(resolve, 1000));
+    
     const mockToken = `atv_${service.toLowerCase()}_${Math.random().toString(36).substring(7)}`;
-    console.log(`[VAULT] Token acquired: ${mockToken.substring(0, 8)}...`);
+    console.log(`[ZENITH VAULT] Token acquired and held in secure memory: ${mockToken.substring(0, 8)}...`);
+    
+    // We return the token to be used by the backend proxy, NOT the LLM prompt.
     return mockToken;
   }
 
@@ -149,7 +159,10 @@ export const AudioUtils = {
     return bytes;
   },
   async decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
-    const dataInt16 = new Int16Array(data.buffer);
+    // Ensure we have an even number of bytes for Int16Array and handle potential offsets
+    const length = Math.floor(data.byteLength / 2) * 2;
+    const bufferToUse = data.buffer.slice(data.byteOffset, data.byteOffset + length);
+    const dataInt16 = new Int16Array(bufferToUse);
     const frameCount = dataInt16.length / numChannels;
     const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
     for (let channel = 0; channel < numChannels; channel++) {

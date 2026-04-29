@@ -14,12 +14,16 @@ const isValidConfigString = (val: any) => {
 let firebaseApp: any = null;
 export let auth: any = null;
 export let db: any = null;
+export let runtimeGeminiApiKey: string | null = null;
 
-// Initial diagnostics based on build-time env
+import firebaseAppletConfig from '../firebase-applet-config.json';
+
+// Initial diagnostics based on build-time env or local config
 const buildTimeDiagnostics = {
-  projectId: isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID),
-  apiKey: isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY),
-  isFullyConfigured: isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID) && isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY)
+  projectId: isValidConfigString(firebaseAppletConfig.projectId) || isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  apiKey: isValidConfigString(firebaseAppletConfig.apiKey) || isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY),
+  isFullyConfigured: (isValidConfigString(firebaseAppletConfig.projectId) || isValidConfigString(import.meta.env.VITE_FIREBASE_PROJECT_ID)) && 
+                     (isValidConfigString(firebaseAppletConfig.apiKey) || isValidConfigString(import.meta.env.VITE_FIREBASE_API_KEY))
 };
 
 const initFirebase = (config: any) => {
@@ -34,39 +38,59 @@ const initFirebase = (config: any) => {
   try {
     firebaseApp = initializeApp(config);
     auth = getAuth(firebaseApp);
-    db = getFirestore(firebaseApp);
+    db = getFirestore(firebaseApp, config.firestoreDatabaseId); // Use the specific database ID
     console.log("ZENITH CLOUD: Firebase initialized successfully with Project ID:", config.projectId);
   } catch (error) {
     console.error("ZENITH CLOUD: Firebase Init Error:", error);
   }
 };
 
-// Try build-time config first
+// Try local config first, then build-time env
 if (buildTimeDiagnostics.isFullyConfigured) {
-  initFirebase({
+  const config = isValidConfigString(firebaseAppletConfig.apiKey) ? firebaseAppletConfig : {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
     storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID
-  });
+  };
+  initFirebase(config);
 }
 
 // Runtime config fetcher
-export const synchronizeCloudConfig = async () => {
+export const synchronizeCloudConfig = async (token?: string) => {
   try {
-    const response = await fetch('/api/config');
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log("ZENITH CLOUD: Syncing with token (length):", token.length);
+    } else {
+      console.log("ZENITH CLOUD: Syncing without token.");
+    }
+    
+    const response = await fetch('/api/config', { headers });
+    if (!response.ok) {
+      console.error("ZENITH CLOUD: Config fetch failed with status:", response.status);
+      return null;
+    }
+    
     const config = await response.json();
+    console.log("ZENITH CLOUD: Config received. Cloud Configured:", config.isCloudConfigured, "Has Gemini Key:", !!config.geminiApiKey);
     
     if (config.isCloudConfigured && !firebaseApp) {
+      console.log("ZENITH CLOUD: Initializing Firebase with runtime config.");
       initFirebase(config.firebase);
-      return true;
     }
-    return !!firebaseApp;
+    
+    if (config.geminiApiKey) {
+      runtimeGeminiApiKey = config.geminiApiKey;
+    }
+    
+    return config;
   } catch (e) {
-    console.warn("ZENITH CLOUD: Failed to fetch runtime config.");
-    return !!firebaseApp;
+    console.error("ZENITH CLOUD: Exception during config sync:", e);
+    return null;
   }
 };
 

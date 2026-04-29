@@ -132,12 +132,49 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
     }
   };
 
+  const [backendStatus, setBackendStatus] = useState<any>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
+  const checkStatus = async () => {
+    setCheckingStatus(true);
+    try {
+      const res = await fetch('/api/fga/status');
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Server returned ${res.status}: ${text.slice(0, 100)}`);
+      }
+      const data = await res.json();
+      setBackendStatus(data);
+    } catch (err: any) {
+      console.error("Failed to check status:", err);
+      setBackendStatus({ error: "Check Failed", details: err.message });
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
   const fetchModel = async () => {
     try {
-      const response = await fetch('/api/fga/model');
+      let response = await fetch('/api/fga/model');
+      
+      // Fallback to /api/fga/dsl if 404
+      if (response.status === 404) {
+        console.log("[GOVERNANCE] /api/fga/model returned 404, trying /api/fga/dsl...");
+        response = await fetch('/api/fga/dsl');
+      }
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch model');
+        let errorMessage = `Error ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (e) {
+          // If not JSON, it might be the SPA fallback HTML
+          if (response.status === 404) {
+            errorMessage = "Endpoint /api/fga/model not found (404). Please check server logs.";
+          }
+        }
+        throw new Error(errorMessage);
       }
       const model = await response.json();
       
@@ -442,6 +479,41 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Security Posture Brief */}
+        <div className="lg:col-span-4 glass rounded-[2.5rem] border border-indigo-500/20 bg-indigo-500/5 p-8 flex flex-col md:flex-row items-center gap-8 relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-12 opacity-5 group-hover:opacity-10 transition-opacity duration-700">
+            <i className="fas fa-user-shield text-[12rem]"></i>
+          </div>
+          <div className="w-20 h-20 rounded-3xl bg-indigo-600 flex items-center justify-center text-3xl text-white shadow-[0_0_40px_rgba(79,70,229,0.4)] relative z-10">
+            <i className="fas fa-shield-virus"></i>
+          </div>
+          <div className="flex-1 space-y-4 relative z-10">
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-1 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-[9px] font-black uppercase tracking-[0.3em] text-indigo-400">Security Posture: Zenith Live</span>
+              <div className="h-px flex-1 bg-gradient-to-r from-indigo-500/30 to-transparent"></div>
+            </div>
+            <h3 className="text-2xl font-black tracking-tighter uppercase italic">Eliminating Agentic Vulnerabilities</h3>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-4xl">
+              Today’s AI agents often connect to powerful tools like <span className="text-white font-bold">GitHub</span> or <span className="text-white font-bold">Production Systems</span> with over-scoped, long-lived tokens. 
+              <span className="text-indigo-400 font-bold italic"> Zenith Live eliminates this risk.</span> By ensuring tokens are never exposed to the LLM context, requiring verified MFA for high-stakes actions, and checking every operation against a real-time OpenFGA authorization graph, we ensure the agent acts only within its trust boundary.
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-2 relative z-10">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-emerald-500">
+              <i className="fas fa-check-circle"></i>
+              <span>Neural Vault Active</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-indigo-500">
+              <i className="fas fa-check-circle"></i>
+              <span>MFA Handshake Ready</span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-500">
+              <i className="fas fa-check-circle"></i>
+              <span>OpenFGA Graph Online</span>
+            </div>
+          </div>
+        </div>
+
         {/* Authorization Model DSL */}
         <div className="lg:col-span-1 glass rounded-[2.5rem] border border-white/10 p-8 space-y-6">
           <div className="flex items-center justify-between">
@@ -519,10 +591,37 @@ const GovernanceStudio: React.FC<GovernanceStudioProps> = ({ theme }) => {
             <div className="space-y-4">
               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
                 <span className="text-slate-500">Connection Status</span>
-                <span className={connectionFailed ? "text-red-500" : "text-emerald-500"}>
-                  {connectionFailed ? "Connection Failed" : "Active"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className={connectionFailed ? "text-red-500" : "text-emerald-500"}>
+                    {connectionFailed ? "Connection Failed" : "Active"}
+                  </span>
+                  <button 
+                    onClick={checkStatus}
+                    disabled={checkingStatus}
+                    className="text-[8px] px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded border border-white/5 transition-colors"
+                  >
+                    {checkingStatus ? '...' : 'Check'}
+                  </button>
+                </div>
               </div>
+              
+              {backendStatus && (
+                <div className="p-3 bg-black/40 border border-white/5 rounded-2xl text-[9px] font-mono text-slate-400 overflow-auto max-h-40 animate-in slide-in-from-top-2 duration-300">
+                  <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-1">
+                    <span className="text-indigo-500 font-black tracking-widest uppercase">Backend Config</span>
+                    <button onClick={() => setBackendStatus(null)} className="hover:text-white">✕</button>
+                  </div>
+                  {backendStatus.error ? (
+                    <div className="space-y-2">
+                      <p className="text-red-500 font-black uppercase">{backendStatus.error}</p>
+                      <p className="text-[8px] text-slate-500 break-all">{backendStatus.details}</p>
+                    </div>
+                  ) : (
+                    <pre className="whitespace-pre-wrap">{JSON.stringify(backendStatus, null, 2)}</pre>
+                  )}
+                </div>
+              )}
+
               <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
                 <span className="text-slate-500">Tuples Loaded</span>
                 <span className="text-white">{tuples.length}</span>

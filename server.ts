@@ -7,9 +7,75 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { OpenFgaClient, CredentialsMethod } from '@openfga/sdk';
+import swaggerUi from 'swagger-ui-express';
+import swaggerJsdoc from 'swagger-jsdoc';
+import admin from 'firebase-admin';
+import { getApps, initializeApp as initializeAdminApp } from 'firebase-admin/app';
+import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin
+let isFirebaseAdminInitialized = false;
+let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID;
+
+// Try to load from config file if env is missing
+try {
+  const configPath = path.join(__dirname, 'firebase-applet-config.json');
+  const config = JSON.parse(await import('fs/promises').then(fs => fs.readFile(configPath, 'utf-8')));
+  if (config.projectId) {
+    firebaseProjectId = config.projectId;
+    console.log(`[SYSTEM] Using Firebase Project ID from config: ${firebaseProjectId}`);
+  }
+} catch (e) {
+  // Config file might not exist or be invalid, fallback to env
+}
+
+if (firebaseProjectId) {
+  try {
+    if (getApps().length === 0) {
+      initializeAdminApp({
+        projectId: firebaseProjectId
+      });
+      console.log(`[SYSTEM] Firebase Admin initialized for project: ${firebaseProjectId}`);
+    }
+    isFirebaseAdminInitialized = true;
+  } catch (error) {
+    console.error("[SYSTEM] Firebase Admin init error:", error);
+  }
+} else {
+  console.warn("[SYSTEM] FIREBASE_PROJECT_ID missing, Admin SDK not initialized");
+}
+
+// Swagger Configuration
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'ZENITH LIVE API',
+      version: '1.0.0',
+      description: 'API Documentation for ZENITH LIVE - The Multimodal Agentic Orchestrator',
+      contact: {
+        name: 'ZENITH Support',
+        url: 'https://zenith.elpeef.com',
+      },
+    },
+    servers: [
+      {
+        url: 'https://zenith.elpeef.com',
+        description: 'Production Server',
+      },
+      {
+        url: 'http://localhost:8080',
+        description: 'Local Development',
+      },
+    ],
+  },
+  apis: ['./server.ts'], // Path to the API docs
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
 
 // Initialize Gemini on the server where process.env is available at runtime
 const getGeminiClient = () => {
@@ -24,30 +90,40 @@ const getGeminiClient = () => {
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '50mb' }));
+
+  // Swagger UI Route
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+  console.log("[SYSTEM] Swagger UI available at /api-docs");
+
   const server = createServer(app);
   const wss = new WebSocketServer({ noServer: true });
 
-  const PORT = process.env.PORT || 8080;
+  const PORT = 8080;
 
   // Initialize OpenFGA Client
   const getOpenFgaClient = () => {
-    const apiUrl = process.env.FGA_API_URL;
-    const storeId = process.env.FGA_STORE_ID;
-    const modelId = process.env.FGA_MODEL_ID;
-    const clientId = process.env.FGA_CLIENT_ID;
-    const clientSecret = process.env.FGA_CLIENT_SECRET;
+    const apiUrl = process.env.FGA_API_URL || import.meta.env.VITE_FGA_API_URL;
+    const storeId = process.env.FGA_STORE_ID || import.meta.env.VITE_FGA_STORE_ID;
+    const modelId = process.env.FGA_MODEL_ID || import.meta.env.VITE_FGA_MODEL_ID;
+    const clientId = process.env.FGA_CLIENT_ID || import.meta.env.VITE_FGA_CLIENT_ID;
+    const clientSecret = process.env.FGA_CLIENT_SECRET || import.meta.env.VITE_FGA_CLIENT_SECRET;
 
     if (!apiUrl || !storeId || !clientId || !clientSecret) {
-      console.warn("WARNING: OpenFGA credentials not fully configured on server.");
+      console.warn("WARNING: OpenFGA credentials not fully configured on server.", {
+        apiUrl: !!apiUrl,
+        storeId: !!storeId,
+        clientId: !!clientId,
+        clientSecret: !!clientSecret
+      });
       return null;
     }
 
     // Auth0 FGA often requires the hostname only for the issuer
-    const rawIssuer = process.env.FGA_API_TOKEN_ISSUER || apiUrl.replace('api', 'auth');
+    const rawIssuer = process.env.FGA_API_TOKEN_ISSUER || process.env.FGA_TOKEN_ISSUER || (apiUrl ? apiUrl.replace('api', 'auth') : '');
     const tokenIssuer = rawIssuer.replace(/^https?:\/\//, '').split('/')[0];
     
     // Auth0 FGA often requires a trailing slash for the audience
-    const rawAudience = process.env.FGA_API_AUDIENCE || apiUrl;
+    const rawAudience = process.env.FGA_API_AUDIENCE || apiUrl || '';
     const apiAudience = rawAudience.endsWith('/') ? rawAudience : `${rawAudience}/`;
 
     return new OpenFgaClient({
@@ -67,19 +143,71 @@ async function startServer() {
   };
 
   // API Routes for OpenFGA
-  app.get('/api/fga/status', (req, res) => {
-    res.json({
-      apiUrl: !!process.env.FGA_API_URL,
-      storeId: !!process.env.FGA_STORE_ID,
-      modelId: !!process.env.FGA_MODEL_ID,
-      clientId: !!process.env.FGA_CLIENT_ID,
-      clientSecret: !!process.env.FGA_CLIENT_SECRET,
-      tokenIssuer: !!process.env.FGA_API_TOKEN_ISSUER,
-      apiAudience: !!process.env.FGA_API_AUDIENCE,
-      nodeEnv: process.env.NODE_ENV
-    });
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/fga')) {
+      console.log(`[FGA API] ${req.method} ${req.path}`);
+    }
+    next();
   });
 
+  /**
+   * @openapi
+   * /api/fga/status:
+   *   get:
+   *     summary: Get OpenFGA configuration status
+   *     tags: [Governance]
+   *     responses:
+   *       200:
+   *         description: Returns which environment variables are configured
+   */
+  app.get('/api/fga/status', (req, res) => {
+    console.log("[FGA STATUS] Checking environment variables...");
+    const status = {
+      apiUrl: !!(process.env.FGA_API_URL || import.meta.env.VITE_FGA_API_URL),
+      storeId: !!(process.env.FGA_STORE_ID || import.meta.env.VITE_FGA_STORE_ID),
+      modelId: !!(process.env.FGA_MODEL_ID || import.meta.env.VITE_FGA_MODEL_ID),
+      clientId: !!(process.env.FGA_CLIENT_ID || import.meta.env.VITE_FGA_CLIENT_ID),
+      clientSecret: !!(process.env.FGA_CLIENT_SECRET || import.meta.env.VITE_FGA_CLIENT_SECRET),
+      tokenIssuer: !!(process.env.FGA_API_TOKEN_ISSUER || process.env.FGA_TOKEN_ISSUER || import.meta.env.VITE_FGA_API_TOKEN_ISSUER || import.meta.env.VITE_FGA_TOKEN_ISSUER),
+      apiAudience: !!(process.env.FGA_API_AUDIENCE || import.meta.env.VITE_FGA_API_AUDIENCE),
+      nodeEnv: process.env.NODE_ENV,
+      timestamp: new Date().toISOString()
+    };
+    console.log("[FGA STATUS] Result:", status);
+    res.json(status);
+  });
+
+  /**
+   * @openapi
+   * /api/fga/dsl:
+   *   get:
+   *     summary: Alias for /api/fga/model
+   *     tags: [Governance]
+   */
+  app.get('/api/fga/dsl', async (req, res) => {
+    const fga = getOpenFgaClient();
+    if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
+
+    try {
+      const { authorization_model } = await fga.readLatestAuthorizationModel();
+      res.json(authorization_model);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * @openapi
+   * /api/fga/model:
+   *   get:
+   *     summary: Read the latest OpenFGA authorization model
+   *     tags: [Governance]
+   *     responses:
+   *       200:
+   *         description: The current authorization model
+   *       503:
+   *         description: OpenFGA not configured
+   */
   app.get('/api/fga/model', async (req, res) => {
     const fga = getOpenFgaClient();
     if (!fga) return res.status(503).json({ error: "OpenFGA environment variables are missing on the server." });
@@ -93,6 +221,16 @@ async function startServer() {
     }
   });
 
+  /**
+   * @openapi
+   * /api/fga/tuples:
+   *   get:
+   *     summary: Read all relationship tuples from OpenFGA
+   *     tags: [Governance]
+   *     responses:
+   *       200:
+   *         description: List of relationship tuples
+   */
   app.get('/api/fga/tuples', async (req, res) => {
     const fga = getOpenFgaClient();
     if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
@@ -105,12 +243,52 @@ async function startServer() {
     }
   });
 
+  /**
+   * @openapi
+   * /api/fga/write:
+   *   post:
+   *     summary: Write a relationship tuple to OpenFGA
+   *     tags: [Governance]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [user, relation, object]
+   *             properties:
+   *               user:
+   *                 type: string
+   *                 description: User identifier in 'type:id' format
+   *                 example: "user:81684"
+   *               relation:
+   *                 type: string
+   *                 description: Relationship name
+   *                 example: "viewer"
+   *               object:
+   *                 type: string
+   *                 description: Object identifier in 'type:id' format
+   *                 example: "document:1"
+   *     responses:
+   *       200:
+   *         description: Success status
+   *       400:
+   *         description: Invalid input format
+   */
   app.post('/api/fga/write', async (req, res) => {
     const fga = getOpenFgaClient();
     if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
 
     try {
       const { user, relation, object } = req.body;
+      
+      // Basic validation for OpenFGA format
+      if (!user?.includes(':') || !object?.includes(':')) {
+        return res.status(400).json({ 
+          error: "Invalid format. 'user' and 'object' must be in 'type:id' format (e.g., user:123, document:abc)" 
+        });
+      }
+
       await fga.write({
         writes: [{ user, relation, object }]
       });
@@ -120,12 +298,52 @@ async function startServer() {
     }
   });
 
+  /**
+   * @openapi
+   * /api/fga/check:
+   *   post:
+   *     summary: Check if a relationship exists in OpenFGA
+   *     tags: [Governance]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [user, relation, object]
+   *             properties:
+   *               user:
+   *                 type: string
+   *                 description: User identifier in 'type:id' format
+   *                 example: "user:81684"
+   *               relation:
+   *                 type: string
+   *                 description: Relationship name
+   *                 example: "viewer"
+   *               object:
+   *                 type: string
+   *                 description: Object identifier in 'type:id' format
+   *                 example: "document:1"
+   *     responses:
+   *       200:
+   *         description: Allowed status
+   *       400:
+   *         description: Invalid input format
+   */
   app.post('/api/fga/check', async (req, res) => {
     const fga = getOpenFgaClient();
     if (!fga) return res.status(503).json({ error: "OpenFGA not configured" });
 
     try {
       const { user, relation, object } = req.body;
+
+      // Basic validation for OpenFGA format
+      if (!user?.includes(':') || !object?.includes(':')) {
+        return res.status(400).json({ 
+          error: "Invalid format. 'user' and 'object' must be in 'type:id' format (e.g., user:123, document:abc)" 
+        });
+      }
+
       const { allowed } = await fga.check({ user, relation, object });
       res.json({ allowed });
     } catch (error: any) {
@@ -134,6 +352,27 @@ async function startServer() {
   });
 
   // API Routes for Gemini (Server-side proxy)
+  /**
+   * @openapi
+   * /api/gemini/text:
+   *   post:
+   *     summary: Generate text using Gemini 3.1 Pro
+   *     tags: [Agentic Core]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             properties:
+   *               prompt:
+   *                 type: string
+   *               useSearch:
+   *                 type: boolean
+   *     responses:
+   *       200:
+   *         description: Generated text and sources
+   */
   app.post('/api/gemini/text', async (req, res) => {
     const { prompt, useSearch } = req.body;
     const ai = getGeminiClient();
@@ -192,14 +431,43 @@ async function startServer() {
     }
   });
 
+  /**
+   * @openapi
+   * /api/gemini/image:
+   *   post:
+   *     summary: Generate an image using Gemini 2.5 Flash Image
+   *     tags: [Agentic Core]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [prompt]
+   *             properties:
+   *               prompt:
+   *                 type: string
+   *                 example: "A futuristic city with flying cars"
+   *               model:
+   *                 type: string
+   *                 enum: ['gemini-2.5-flash-image', 'imagen-3.0-generate-001']
+   *                 default: 'gemini-2.5-flash-image'
+   *     responses:
+   *       200:
+   *         description: Base64 encoded image URL
+   */
   app.post('/api/gemini/image', async (req, res) => {
     const { prompt, model } = req.body;
     const ai = getGeminiClient();
     if (!ai) return res.status(500).json({ error: "Gemini API Key not configured on server." });
 
+    // Validate model
+    const validModels = ['gemini-2.5-flash-image', 'imagen-3.0-generate-001'];
+    const selectedModel = validModels.includes(model) ? model : 'gemini-2.5-flash-image';
+
     try {
       const response = await ai.models.generateContent({
-        model: model || 'gemini-2.5-flash-image',
+        model: selectedModel,
         contents: { parts: [{ text: prompt }] },
         config: { imageConfig: { aspectRatio: "1:1" } }
       });
@@ -215,10 +483,49 @@ async function startServer() {
     }
   });
 
+  /**
+   * @openapi
+   * /api/gemini/video:
+   *   post:
+   *     summary: Generate a video using Veo 3.1
+   *     tags: [Agentic Core]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [prompt]
+   *             properties:
+   *               prompt:
+   *                 type: string
+   *                 example: "A serene forest with sunlight filtering through the trees"
+   *               aspectRatio:
+   *                 type: string
+   *                 enum: ['16:9', '1:1', '9:16']
+   *                 default: '16:9'
+   *               resolution:
+   *                 type: string
+   *                 enum: ['720p', '1080p']
+   *                 default: '720p'
+   *               style:
+   *                 type: string
+   *                 example: "Cinematic"
+   *     responses:
+   *       200:
+   *         description: MP4 video stream
+   */
   app.post('/api/gemini/video', async (req, res) => {
     const { prompt, aspectRatio, resolution, style } = req.body;
     const ai = getGeminiClient();
     if (!ai) return res.status(500).json({ error: "Gemini API Key not configured on server." });
+
+    // Validate inputs
+    const validAspectRatios = ['16:9', '1:1', '9:16'];
+    const validResolutions = ['720p', '1080p'];
+    
+    const selectedAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : '16:9';
+    const selectedResolution = validResolutions.includes(resolution) ? resolution : '720p';
 
     try {
       const enrichedPrompt = `${style || 'Cinematic'} style video: ${prompt}. Production quality: High. Motion: Consistent and fluid.`;
@@ -227,8 +534,8 @@ async function startServer() {
         prompt: enrichedPrompt,
         config: {
           numberOfVideos: 1,
-          resolution: resolution || '720p',
-          aspectRatio: aspectRatio || '16:9'
+          resolution: selectedResolution,
+          aspectRatio: selectedAspectRatio
         }
       });
 
@@ -250,19 +557,67 @@ async function startServer() {
     }
   });
 
-  app.get('/api/config', (req, res) => {
+    app.get('/api/config', async (req, res) => {
+      console.log("[API/CONFIG] Request received");
+      let firebaseApiKey = process.env.FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
+      let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID;
+      const geminiApiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+
+      // Fallback to config file
+      try {
+        const configPath = path.join(__dirname, 'firebase-applet-config.json');
+        const config = JSON.parse(await import('fs/promises').then(fs => fs.readFile(configPath, 'utf-8')));
+        if (!firebaseApiKey) firebaseApiKey = config.apiKey;
+        if (!firebaseProjectId) firebaseProjectId = config.projectId;
+        console.log("[API/CONFIG] Using Firebase Project:", firebaseProjectId);
+      } catch (e) {
+        console.warn("[API/CONFIG] Could not read config file fallback");
+      }
+
+      // Security: Only provide the Gemini API Key if a valid Firebase Auth token is provided
+      let isAuthenticated = false;
+      let authError = null;
+      const authHeader = req.headers.authorization;
+      
+      if (authHeader?.startsWith('Bearer ')) {
+        const idToken = authHeader.split('Bearer ')[1];
+        console.log("[API/CONFIG] Bearer token found, length:", idToken.length);
+        if (isFirebaseAdminInitialized) {
+          try {
+            const decodedToken = await getAdminAuth().verifyIdToken(idToken);
+            isAuthenticated = true;
+            console.log(`[AUTH] Token verified for UID: ${decodedToken.uid}`);
+          } catch (error: any) {
+            authError = `Verification failed: ${error.message}`;
+            console.error("[AUTH] Token verification failed:", error.message);
+          }
+        } else {
+          authError = "Firebase Admin not initialized";
+          console.warn("[AUTH] Cannot verify token: Firebase Admin not initialized");
+        }
+      } else {
+        console.log("[AUTH] No Bearer token provided in request headers");
+      }
+
+      console.log("[API/CONFIG] Final Auth Status:", { isAuthenticated, hasGeminiKey: !!geminiApiKey });
+
     // Provide config to the frontend at runtime
-    // Note: Gemini API Key is exposed here specifically for the Live API client-side requirement
     res.json({
-      isCloudConfigured: !!(process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY),
-      geminiApiKey: process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY,
+      isCloudConfigured: !!(geminiApiKey && firebaseApiKey && firebaseProjectId),
+      // Only expose the key to authenticated sessions
+      geminiApiKey: isAuthenticated ? geminiApiKey : null, 
+      authStatus: {
+        isAuthenticated,
+        error: authError,
+        adminInitialized: isFirebaseAdminInitialized
+      },
       firebase: {
-        projectId: process.env.FIREBASE_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID,
-        apiKey: process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY,
-        authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.VITE_FIREBASE_AUTH_DOMAIN,
-        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.FIREBASE_APP_ID || process.env.VITE_FIREBASE_APP_ID
+        projectId: firebaseProjectId,
+        apiKey: firebaseApiKey,
+        authDomain: process.env.FIREBASE_AUTH_DOMAIN || import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: process.env.FIREBASE_APP_ID || import.meta.env.VITE_FIREBASE_APP_ID
       }
     });
   });
@@ -352,7 +707,7 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     app.use(express.static(path.join(__dirname, 'dist')));
-    app.get(/.*$/, (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
   }

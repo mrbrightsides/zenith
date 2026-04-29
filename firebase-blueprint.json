@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Stores user profile information and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The unique Firebase Auth UID." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "format": "email", "description": "The user's email address." },
+        "photoURL": { "type": "string", "format": "uri", "description": "URL to the user's profile picture." },
+        "role": { "type": "string", "enum": ["admin", "user"], "description": "The user's role in the system." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." }
+      },
+      "required": ["uid", "role"]
+    },
+    "VaultConnection": {
+      "title": "VaultConnection",
+      "description": "Stores encrypted or metadata about third-party service connections.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the owner." },
+        "serviceId": { "type": "string", "enum": ["github", "google", "spotify"], "description": "The service identifier." },
+        "status": { "type": "string", "enum": ["connected", "disconnected"], "description": "Current status of the link." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Last update timestamp." }
+      },
+      "required": ["userId", "serviceId", "status"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Private user profile data."
+    },
+    "/users/{userId}/vault/{serviceId}": {
+      "schema": "VaultConnection",
+      "description": "User-specific service connections."
+    }
+  }
+}

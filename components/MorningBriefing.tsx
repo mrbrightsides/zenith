@@ -18,6 +18,7 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme, externalUser }
 
   const [status, setStatus] = useState<'analyzing' | 'generating' | 'ready'>('analyzing');
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isVideoLoading, setIsVideoLoading] = useState(true);
   const [summary, setSummary] = useState('');
   const [greeting, setGreeting] = useState('Good Morning');
   const [briefingData, setBriefingData] = useState({ github: 0, calendar: 0 });
@@ -73,7 +74,8 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme, externalUser }
     
     // 4. Simulate Veo 3.1 Video Generation
     await new Promise(r => setTimeout(r, 3000));
-    setVideoUrl('https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4');
+    // Using a more reliable tech-themed mock video
+    setVideoUrl('https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'); 
     
     setStatus('ready');
   };
@@ -89,13 +91,28 @@ const MorningBriefing: React.FC<MorningBriefingProps> = ({ theme, externalUser }
           {/* Video Section */}
           <div className="relative bg-black flex items-center justify-center overflow-hidden border-r border-white/5">
             {status === 'ready' && videoUrl ? (
-              <video 
-                src={videoUrl} 
-                autoPlay 
-                loop 
-                muted 
-                className="w-full h-full object-cover opacity-60"
-              />
+              <>
+                {isVideoLoading && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 z-20 bg-black">
+                    <div className="w-12 h-12 rounded-full border-4 border-t-indigo-500 border-indigo-500/20 animate-spin"></div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-indigo-500">Buffering Neural Stream...</p>
+                  </div>
+                )}
+                <video 
+                  src={videoUrl} 
+                  autoPlay 
+                  loop 
+                  muted 
+                  playsInline
+                  referrerPolicy="no-referrer"
+                  onLoadedData={() => setIsVideoLoading(false)}
+                  onError={(e) => {
+                    console.error("Briefing Video Error:", e);
+                    setIsVideoLoading(false);
+                  }}
+                  className={`w-full h-full object-cover transition-opacity duration-1000 ${isVideoLoading ? 'opacity-0' : 'opacity-60'}`}
+                />
+              </>
             ) : (
               <div className="flex flex-col items-center gap-6">
                 <div className="w-16 h-16 rounded-full border-4 border-t-indigo-500 border-indigo-500/20 animate-spin"></div>

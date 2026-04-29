@@ -55,6 +55,7 @@ const App: React.FC = () => {
   );
 
   const [trustCircleUsers, setTrustCircleUsers] = useState<any[]>([]);
+  const [geminiApiKey, setGeminiApiKey] = useState<string | null>(null);
   const [socket, setSocket] = useState<WebSocket | null>(null);
 
   const sendInteraction = (active: boolean) => {
@@ -111,17 +112,44 @@ const App: React.FC = () => {
       }
 
       // Listen for auth state
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        console.log("ZENITH: Auth state changed. User UID:", currentUser?.uid || 'null', "Anonymous:", currentUser?.isAnonymous);
         setUser(currentUser);
+        
+        // If we have a user, re-sync config to get the Gemini API Key securely
+        if (currentUser) {
+          try {
+            console.log("ZENITH: Retrieving ID token for config sync...");
+            const token = await currentUser.getIdToken(true);
+            console.log("ZENITH: Syncing config with token...");
+            const config = await synchronizeCloudConfig(token);
+            if (config?.geminiApiKey) {
+              console.log("ZENITH: Config sync successful, Gemini API Key obtained.");
+              setGeminiApiKey(config.geminiApiKey);
+            } else {
+              console.warn("ZENITH: Config sync returned no Gemini API Key even with token.");
+            }
+            if (config?.authStatus?.error) {
+              console.error("ZENITH: Server reported auth error:", config.authStatus.error);
+            }
+          } catch (e) {
+            console.warn("ZENITH: Failed to re-sync config with token:", e);
+          }
+        } else {
+          console.log("ZENITH: User is null, clearing Gemini API Key.");
+          setGeminiApiKey(null);
+        }
       });
 
       // Attempt background anonymous login if not logged in
       try {
         if (!auth.currentUser) {
+          console.log("ZENITH: No current user, attempting anonymous login...");
           await signInAnonymously(auth);
+          console.log("ZENITH: Anonymous login successful.");
         }
       } catch (e) {
-        console.warn("Background Cloud Link failed. Operating in Resilient Sandbox mode.");
+        console.error("ZENITH: Background Cloud Link failed:", e);
       }
 
       return unsubscribe;
@@ -216,8 +244,8 @@ const App: React.FC = () => {
       case StudioTab.TEXT: return <TextStudio {...commonProps} onMounted={onComponentMounted} />;
       case StudioTab.IMAGE: return <ImageStudio {...commonProps} onMounted={onComponentMounted} />;
       case StudioTab.VIDEO: return <VideoStudio {...commonProps} onMounted={onComponentMounted} />;
-      case StudioTab.LIVE: return <LiveStudio theme={theme} onInteraction={sendInteraction} />;
-      case StudioTab.ARCHITECTURE: return <Architecture theme={theme} />;
+      case StudioTab.LIVE: return <LiveStudio theme={theme} user={user} runtimeGeminiApiKey={geminiApiKey} onInteraction={sendInteraction} />;
+      case StudioTab.ARCHITECTURE: return <Architecture theme={theme} isAuth0Authenticated={isAuth0Authenticated} />;
       case StudioTab.VAULT: return <VaultStudio theme={theme} />;
       case StudioTab.GOVERNANCE: return <GovernanceStudio theme={theme} />;
       default: return <OrchestratorStudio {...commonProps} onMounted={onComponentMounted} />;
@@ -332,7 +360,7 @@ const App: React.FC = () => {
             {user?.isAnonymous && (
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] font-black uppercase tracking-widest animate-pulse">
                 <i className="fas fa-user-tie"></i>
-                Judge Mode Active
+                Live Mode Active
               </div>
             )}
             <div className="h-10 w-[1px] bg-slate-800 mx-1"></div>

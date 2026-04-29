@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { AudioUtils } from '../services/geminiService';
+import { runtimeGeminiApiKey as globalRuntimeGeminiApiKey, synchronizeCloudConfig } from '../services/firebaseService';
 
 declare global {
   interface Window {
@@ -34,9 +35,15 @@ const VISUAL_STYLES = [
 
 type AgentState = 'IDLE' | 'LISTENING' | 'THINKING' | 'RESPONDING';
 
-const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: boolean) => void }> = ({ theme, onInteraction }) => {
+const LiveStudio: React.FC<{ 
+  theme: 'dark' | 'light'; 
+  user?: any; 
+  runtimeGeminiApiKey?: string | null;
+  onInteraction?: (active: boolean) => void 
+}> = ({ theme, user, runtimeGeminiApiKey, onInteraction }) => {
   const [isActive, setIsActive] = useState(false);
   const [isAwake, setIsAwake] = useState(false);
+  const [runtimeApiKey, setRuntimeApiKey] = useState<string | null>(null);
 
   useEffect(() => {
     onInteraction?.(isActive);
@@ -68,7 +75,78 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
   
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  
+
+  // Debug log for user prop
+  useEffect(() => {
+    const userId = user?.uid || 'null';
+    const userEmail = user?.email || 'null';
+    console.log(`LIVE STUDIO: User/Key prop updated. UID: ${userId}, Email: ${userEmail}, PropKey: ${!!runtimeGeminiApiKey}`);
+    
+    // Always trigger verification when user or key prop changes
+    verifyBackend();
+  }, [user, runtimeGeminiApiKey]);
+
+  const verifyBackend = useCallback(async () => {
+    try {
+      const userId = user?.uid || 'null';
+      console.log(`LIVE STUDIO: verifyBackend started. User: ${userId}, PropKey: ${!!runtimeGeminiApiKey}, GlobalKey: ${!!globalRuntimeGeminiApiKey}`);
+      setStatus('Verifying Identity...');
+      
+      // If we have a key from props or global, use it
+      const activeKey = runtimeGeminiApiKey || globalRuntimeGeminiApiKey;
+      if (activeKey) {
+        console.log("LIVE STUDIO: Using active Gemini API Key (Prop or Global)");
+        setRuntimeApiKey(activeKey);
+        setStatus('Neural Link Ready');
+        setErrorDetails(null);
+        return;
+      }
+
+      // Try to fetch with user token if available
+      let token: string | undefined;
+      if (user) {
+        try {
+          token = await user.getIdToken(true);
+          console.log("LIVE STUDIO: Firebase token retrieved.");
+        } catch (e) {
+          console.warn("LIVE STUDIO: Failed to get Firebase token:", e);
+        }
+      }
+
+      console.log("LIVE STUDIO: Fetching config from server...");
+      const config = await synchronizeCloudConfig(token);
+      
+      if (config?.geminiApiKey) {
+        console.log("LIVE STUDIO: Neural Link established via server config.");
+        setRuntimeApiKey(config.geminiApiKey);
+        setStatus('Neural Link Ready');
+        setErrorDetails(null);
+      } else if (config) {
+        console.log("LIVE STUDIO: Server config received, but no Gemini API Key.");
+        if (user) {
+          setStatus('Identity Verified (No Key)');
+          const serverError = config.authStatus?.error;
+          setErrorDetails(serverError ? `Server Auth Error: ${serverError}` : "Neural Link established, but Gemini API Key is missing from server environment.");
+        } else {
+          setStatus('Local Link Ready');
+          setErrorDetails("Neural Link requires authentication. Please sign in to enable full agentic capabilities.");
+        }
+      } else {
+        console.warn("LIVE STUDIO: Server config fetch failed (null).");
+        setStatus('Offline Mode');
+        setErrorDetails("Failed to synchronize with Zenith Cloud. Check your internet connection.");
+      }
+    } catch (e) {
+      console.error("LIVE STUDIO: Backend verification exception:", e);
+      setStatus('Local Link Ready');
+      setErrorDetails(`Verification Exception: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    verifyBackend();
+  }, [verifyBackend]);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const inputContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -118,20 +196,6 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       size: Math.random() * 2 + 1,
       life: Math.random()
     }));
-
-    const verifyBackend = async () => {
-      try {
-        const response = await fetch('/api/config');
-        if (response.ok) {
-          setStatus('Neural Link Ready');
-        } else {
-          setStatus('Local Link Ready');
-        }
-      } catch (e) {
-        setStatus('Local Link Ready');
-      }
-    };
-    verifyBackend();
   }, []);
 
   useEffect(() => {
@@ -424,7 +488,12 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       }, 50);
 
       // Check for API Key (either from env, platform dialog, or server config)
-      let apiKey = import.meta.env.VITE_GEMINI_API_KEY || (process.env as any).API_KEY;
+      let apiKey = import.meta.env.VITE_GEMINI_API_KEY || runtimeApiKey || (process.env as any).API_KEY;
+      console.log("LIVE STUDIO: Initial API Key check:", { 
+        hasViteKey: !!import.meta.env.VITE_GEMINI_API_KEY, 
+        hasRuntimeKey: !!runtimeApiKey,
+        hasProcessKey: !!(process.env as any).API_KEY
+      });
       
       // If no env key, check if user has selected one via the platform
       if (!apiKey && window.aistudio) {
@@ -440,21 +509,13 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
         }
       }
 
-      // If still no key, try fetching from server config
+      // If still no key, try environment variable
       if (!apiKey) {
-        try {
-          const response = await fetch('/api/config');
-          if (response.ok) {
-            const config = await response.json();
-            apiKey = config.geminiApiKey;
-          }
-        } catch (err) {
-          console.warn("Server config fetch failed:", err);
-        }
+        apiKey = import.meta.env.VITE_GEMINI_API_KEY;
       }
 
       if (!apiKey) {
-        throw new Error("Gemini API Key is required for the Live Protocol. Please set GEMINI_API_KEY in your Cloud Run environment or select a key via the platform.");
+        throw new Error("Gemini API Key is required for the Live Protocol. Please set VITE_GEMINI_API_KEY in your environment variables or select a key via the platform.");
       }
 
       const ai = new GoogleGenAI({ apiKey });
@@ -470,6 +531,10 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       const inCtx = new AudioContext({ sampleRate: 16000 });
       const outCtx = new AudioContext({ sampleRate: 24000 });
       
+      // Ensure contexts are resumed (required by some browsers)
+      await inCtx.resume();
+      await outCtx.resume();
+      
       inputContextRef.current = inCtx;
       audioContextRef.current = outCtx;
       analyserRef.current = inCtx.createAnalyser();
@@ -480,7 +545,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
       audioDestinationRef.current = dest;
 
       const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        model: 'gemini-3.1-flash-live-preview',
         callbacks: {
           onopen: () => {
             setIsActive(true);
@@ -490,10 +555,17 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
             const processor = inCtx.createScriptProcessor(4096, 1, 1);
             processor.onaudioprocess = (e) => {
               const data = e.inputBuffer.getChannelData(0);
+              
+              // Diagnostic: Log if we hear something
+              const maxAmp = Math.max(...Array.from(data).map(Math.abs));
+              if (maxAmp > 0.05) {
+                console.log("ZENITH: Mic active, max amp:", maxAmp.toFixed(3));
+              }
+
               const int16 = new Int16Array(data.length);
               for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
               const blob = { data: AudioUtils.encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' };
-              sessionPromise.then(s => s.sendRealtimeInput({ media: blob }));
+              sessionPromise.then(s => s.sendRealtimeInput({ audio: blob }));
             };
             source.connect(analyserRef.current!);
             source.connect(processor);
@@ -510,7 +582,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
                     context.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
                     sessionPromise.then(s => s.sendRealtimeInput({ 
-                      media: { data: base64Data, mimeType: 'image/jpeg' } 
+                      video: { data: base64Data, mimeType: 'image/jpeg' } 
                     }));
                   }
                 }
@@ -519,6 +591,11 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
           },
           onmessage: async (message: LiveServerMessage) => {
             lastActivityRef.current = Date.now();
+            
+            // Log message types for debugging (only if not sessionResumptionUpdate to avoid spam)
+            if (Object.keys(message).length > 0 && !(message.serverContent as any)?.sessionResumptionUpdate) {
+              console.log("ZENITH: Received message types:", Object.keys(message));
+            }
 
             if (message.serverContent?.inputTranscription) {
               const text = message.serverContent.inputTranscription.text;
@@ -526,7 +603,8 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               setActiveUserText(userTextRef.current);
               
               const lowerText = userTextRef.current.toLowerCase();
-              if (!isAwake && (lowerText.includes("zenith") || lowerText.includes("activate"))) {
+              // Auto-awake if user starts talking, but still support explicit wake word
+              if (!isAwake && (lowerText.length > 5 || lowerText.includes("zenith") || lowerText.includes("activate"))) {
                 setIsAwake(true);
                 setStatus('Active Neural Link');
                 commitTurn();
@@ -572,6 +650,7 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
             const audioData = message.serverContent?.modelTurn?.parts?.[0]?.inlineData?.data;
             if (audioData && audioContextRef.current && !isPaused) {
+              console.log("ZENITH: Processing audio chunk...");
               const ctx = audioContextRef.current;
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
               const buffer = await AudioUtils.decodeAudioData(AudioUtils.decode(audioData), ctx, 24000, 1);
@@ -718,6 +797,24 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      {errorDetails && (
+        <div className="glass p-6 rounded-3xl border border-red-500/20 bg-red-500/5 space-y-3 animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="flex items-center gap-3 text-red-400">
+            <i className="fas fa-exclamation-triangle"></i>
+            <h4 className="text-[10px] font-black uppercase tracking-widest">Neural Link Error</h4>
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed font-medium">{errorDetails}</p>
+          <button 
+            onClick={() => {
+              setErrorDetails(null);
+              verifyBackend();
+            }}
+            className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+          >
+            Retry Neural Link
+          </button>
+        </div>
+      )}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         <div className="lg:col-span-1 space-y-6">
           <div className="glass p-6 rounded-[2.5rem] space-y-6 border border-white/10 shadow-2xl">
@@ -786,16 +883,19 @@ const LiveStudio: React.FC<{ theme: 'dark' | 'light'; onInteraction?: (active: b
               </div>
               
               <button 
+                disabled={(isHandshaking || status === 'Verifying Identity...') && !isActive}
                 onClick={isActive ? disconnect : startSession}
                 className={`w-full p-4 rounded-2xl border flex items-center justify-between transition-all shadow-xl duration-500 ${
                   isActive 
-                    ? 'bg-red-500/20 border-red-500/40 text-red-400' 
-                    : 'text-white'
+                    ? 'bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30' 
+                    : (isHandshaking || status === 'Verifying Identity...' ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-wait' : 'text-white')
                 }`}
-                style={!isActive ? { backgroundColor: selectedAvatar.color, borderColor: selectedAvatar.glow, boxShadow: `0 10px 25px -5px ${selectedAvatar.color}44` } : {}}
+                style={!isActive && !isHandshaking && status !== 'Verifying Identity...' ? { backgroundColor: selectedAvatar.color, borderColor: selectedAvatar.glow, boxShadow: `0 10px 25px -5px ${selectedAvatar.color}44` } : {}}
               >
-                <span className="text-[10px] font-black uppercase tracking-widest">{isActive ? 'Cut Frequency' : 'Initialize Link'}</span>
-                <i className={`fas ${isActive ? 'fa-unlink' : 'fa-link'}`}></i>
+                <span className="text-[10px] font-black uppercase tracking-widest">
+                  {isActive ? 'Cut Frequency' : (isHandshaking ? 'Handshaking...' : (status === 'Verifying Identity...' ? 'Verifying...' : 'Initialize Link'))}
+                </span>
+                <i className={`fas ${isActive ? 'fa-unlink' : (isHandshaking || status === 'Verifying Identity...' ? 'fa-spinner fa-spin' : 'fa-link')}`}></i>
               </button>
             </div>
           </div>

@@ -48,6 +48,81 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
             </span>
           </button>
           <span className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-600">Secure Protocol Established</span>
+          <div className="flex items-center gap-4 opacity-40">
+              <div className="flex items-center gap-2">
+                <i className="fab fa-google text-[10px]"></i>
+                <span className="text-[8px] font-bold uppercase tracking-widest">Google Cloud Run</span>
+              </div>
+              <div className="w-1 h-1 rounded-full bg-slate-700"></div>
+              <div className="flex items-center gap-2">
+                <i className="fas fa-database text-[10px]"></i>
+                <span className="text-[8px] font-bold uppercase tracking-widest">Firestore Native</span>
+              </div>
+            </div>
+        </div>
+      </div>
+
+      {/* The Risk We're Solving Section */}
+      <div className="relative z-10 max-w-6xl w-full py-24 px-6 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-600">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-8 text-left">
+            <div className="inline-block px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-500 text-[10px] font-black uppercase tracking-[0.3em]">
+              The Risk We're Solving
+            </div>
+            <h2 className="text-5xl font-black tracking-tighter leading-tight italic">
+              AI AGENTS ARE POWERFUL. <br/>
+              <span className="text-slate-500">BUT THEY ARE VULNERABLE.</span>
+            </h2>
+            <p className="text-lg text-slate-400 leading-relaxed font-light">
+              Today's AI agents connect to tools like <span className="text-white font-medium">GitHub</span>, <span className="text-white font-medium">Google Drive</span>, or <span className="text-white font-medium">Production Systems</span>—but they often do so with over-scoped, long-lived tokens.
+            </p>
+            <div className="p-6 rounded-3xl bg-red-500/5 border border-red-500/10 space-y-4">
+              <div className="flex items-center gap-3 text-red-500">
+                <i className="fas fa-exclamation-triangle"></i>
+                <span className="text-xs font-black uppercase tracking-widest">Critical Vulnerability</span>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                If an agent is compromised (e.g., via <span className="text-white font-bold italic">Prompt Injection</span>), it can act with full authority—without real-time verification.
+              </p>
+            </div>
+          </div>
+
+          <div className="glass p-12 rounded-[4rem] border border-indigo-500/20 shadow-2xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/10 to-blue-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+            <div className="relative z-10 space-y-10">
+              <div className="flex items-center gap-4">
+                <Logo size={40} />
+                <span className="text-xs font-black uppercase tracking-[0.4em] text-indigo-400">Zenith Elimination Protocol</span>
+              </div>
+              
+              <div className="space-y-6">
+                <SolutionItem 
+                  icon="fa-vault" 
+                  title="Neural Vault" 
+                  desc="Tokens are never exposed to the LLM context. Secure intermediary brokering." 
+                />
+                <SolutionItem 
+                  icon="fa-user-check" 
+                  title="Identity Handshake" 
+                  desc="High-stakes actions require verified identity (MFA) via Auth0 integration." 
+                />
+                <SolutionItem 
+                  icon="fa-fingerprint" 
+                  title="Neural Governance" 
+                  desc="Every action is checked against a real-time OpenFGA authorization graph." 
+                />
+              </div>
+
+              <div className="pt-8 border-t border-white/5">
+                <div className="flex items-center gap-4 text-indigo-500">
+                  <i className="fas fa-shield-alt animate-pulse"></i>
+                  <p className="text-xs font-black uppercase tracking-widest leading-relaxed">
+                    The agent doesn't just act. It acts only when authorized, and only within its trust boundary.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -91,7 +166,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
 
       <footer className="relative z-10 py-10 flex flex-col items-center gap-4">
         <div className="opacity-30 text-[10px] font-black uppercase tracking-[0.5em] text-center">
-          ZENITH LIVE © 2026 // AGENTIC INNOVATION PROTOCOL
+          ZENITH LIVE © 2026 AGENTIC INNOVATION PROTOCOL
         </div>
         <div className="max-w-2xl text-center opacity-40 hover:opacity-100 transition-opacity duration-500">
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 leading-relaxed">
@@ -105,6 +180,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onEnter, theme }) => {
     </div>
   );
 };
+
+const SolutionItem: React.FC<{ icon: string; title: string; desc: string }> = ({ icon, title, desc }) => (
+  <div className="flex items-start gap-6 group/item">
+    <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover/item:bg-indigo-500 group-hover/item:text-white transition-all duration-500">
+      <i className={`fas ${icon}`}></i>
+    </div>
+    <div className="flex-1 space-y-1">
+      <h4 className="text-xs font-black uppercase tracking-widest text-white">{title}</h4>
+      <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{desc}</p>
+    </div>
+  </div>
+);
 
 const FeatureCard: React.FC<{ icon: string; title: string; desc: string; color: string; isMain?: boolean; badge?: string }> = ({ icon, title, desc, color, isMain, badge }) => {
   const colorMap: any = {
