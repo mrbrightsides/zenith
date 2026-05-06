@@ -22,26 +22,26 @@ export class MCPService {
   static async searchEmergencyKnowledge(query: string): Promise<MCPDiscoveryResult[]> {
     console.log(`[ZENITH MCP] Dispatching query to Elastic MCP: ${query}`);
     
-    // Simulate MCP Latency
-    await new Promise(r => setTimeout(r, 1200));
+    try {
+      const response = await fetch('/api/mcp/elastic/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      });
 
-    // Mocked responses based on real-world disaster coordination data
-    const mockResults: MCPDiscoveryResult[] = [
-      {
-        title: "Disaster Medical Protocol: Field Triage",
-        relevance: 0.98,
-        source: "WHO_EMERGENCY_ARCHIVE",
-        snippet: "In low-connectivity environments, prioritize patient stabilization using regional supply kits A-4 and B-1."
-      },
-      {
-        title: "Logistics: P2P Mesh Routing in Concrete Dense Zones",
-        relevance: 0.85,
-        source: "ZENITH_SOVEREIGN_MESH",
-        snippet: "Elastic Search identified an 89% signal drop-off in the sector. Recommend shifting broadcast to MESH-RADIO-LORA."
-      }
-    ];
-
-    return mockResults.filter(r => r.relevance > 0.8);
+      if (!response.ok) throw new Error('Elastic search failed');
+      return await response.json();
+    } catch (e) {
+      console.warn("[ZENITH MCP] Elastic Search Latent. Using internal fallback.");
+      return [
+        {
+          title: "Local Resilience Protocol",
+          relevance: 0.9,
+          source: "ZENITH_INTERNAL",
+          snippet: "Maintain communication via P2P Mesh when cloud grounding is unavailable."
+        }
+      ];
+    }
   }
 
   /**
@@ -51,8 +51,11 @@ export class MCPService {
   static async logAgentTrace(taskId: string, action: string, result: string) {
     console.log(`[ZENITH MCP] Logging Agent Trace to Elastic: ${taskId}`);
     try {
-      // In production, this would hit the Arize/Elastic MCP bridge
-      // await fetch(`${this.endpoint}/trace`, { method: 'POST', body: JSON.stringify({ taskId, action, result }) });
+      await fetch('/api/mcp/elastic/trace', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId, action, result }) 
+      });
     } catch (e) {
       console.warn("MCP Trace Logging Latent");
     }

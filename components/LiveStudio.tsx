@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
 import { AudioUtils } from '../services/geminiService';
-import { runtimeGeminiApiKey as globalRuntimeGeminiApiKey, synchronizeCloudConfig } from '../services/firebaseService';
+import { synchronizeCloudConfig } from '../services/firebaseService';
 
 declare global {
   interface Window {
@@ -80,7 +80,7 @@ const LiveStudio: React.FC<{
   useEffect(() => {
     const userId = user?.uid || 'null';
     const userEmail = user?.email || 'null';
-    console.log(`LIVE STUDIO: User/Key prop updated. UID: ${userId}, Email: ${userEmail}, PropKey: ${!!runtimeGeminiApiKey}`);
+    console.log(`LIVE STUDIO: User/Key prop updated. UID: ${userId}, Email: ${userEmail}, PropKeyPresent: ${!!runtimeGeminiApiKey}`);
     
     // Always trigger verification when user or key prop changes
     verifyBackend();
@@ -89,13 +89,13 @@ const LiveStudio: React.FC<{
   const verifyBackend = useCallback(async () => {
     try {
       const userId = user?.uid || 'null';
-      console.log(`LIVE STUDIO: verifyBackend started. User: ${userId}, PropKey: ${!!runtimeGeminiApiKey}, GlobalKey: ${!!globalRuntimeGeminiApiKey}`);
+      console.log(`LIVE STUDIO: verifyBackend start. User: ${userId}, PropKey: ${!!runtimeGeminiApiKey}`);
       setStatus('Verifying Identity...');
       
-      // If we have a key from props or global, use it
-      const activeKey = runtimeGeminiApiKey || globalRuntimeGeminiApiKey;
+      // If we have a key from props or global service variable, use it
+      const activeKey = runtimeGeminiApiKey;
       if (activeKey) {
-        console.log("LIVE STUDIO: Using active Gemini API Key (Prop or Global)");
+        console.log(`LIVE STUDIO: Using active key from state/props (length: ${activeKey.length})`);
         setRuntimeApiKey(activeKey);
         setStatus('Neural Link Ready');
         setErrorDetails(null);
@@ -488,36 +488,60 @@ const LiveStudio: React.FC<{
       }, 50);
 
       // Check for API Key (either from env, platform dialog, or server config)
-      let apiKey = import.meta.env.VITE_GEMINI_API_KEY || runtimeApiKey || (process.env as any).API_KEY;
-      console.log("LIVE STUDIO: Initial API Key check:", { 
-        hasViteKey: !!import.meta.env.VITE_GEMINI_API_KEY, 
+      let apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                   runtimeApiKey || 
+                   (process.env as any).VITE_GEMINI_API_KEY || 
+                   (process.env as any).GEMINI_API_KEY || 
+                   (process.env as any).API_KEY;
+
+      if (!apiKey) {
+        console.log("LIVE STUDIO: Key missing at startSession, attempting emergency re-sync...");
+        let token: string | undefined;
+        if (user) {
+          try {
+            token = await user.getIdToken(true);
+          } catch (e) {}
+        }
+        const config = await synchronizeCloudConfig(token);
+        apiKey = config?.geminiApiKey;
+        if (apiKey) {
+          console.log("LIVE STUDIO: Emergency re-sync successful.");
+          setRuntimeApiKey(apiKey);
+        }
+      }
+
+      console.log("LIVE STUDIO: Session Start API Key check:", { 
+        hasViteEnv: !!import.meta.env.VITE_GEMINI_API_KEY, 
         hasRuntimeKey: !!runtimeApiKey,
-        hasProcessKey: !!(process.env as any).API_KEY
+        hasProcessVite: !!(process.env as any).VITE_GEMINI_API_KEY,
+        hasProcessGemini: !!(process.env as any).GEMINI_API_KEY,
+        hasProcessApiKey: !!(process.env as any).API_KEY
       });
       
       // If no env key, check if user has selected one via the platform
       if (!apiKey && window.aistudio) {
+        console.log("LIVE STUDIO: No key found, checking AI Studio platform...");
         try {
           const hasKey = await window.aistudio.hasSelectedApiKey();
           if (!hasKey) {
+            console.log("LIVE STUDIO: Awaiting key selection from platform...");
             setStatus('Awaiting API Key...');
             await window.aistudio.openSelectKey();
           }
-          apiKey = (process.env as any).API_KEY;
+          // The platform might inject the key into a common location
+          apiKey = (process.env as any).GEMINI_API_KEY || (process.env as any).API_KEY;
+          console.log("LIVE STUDIO: Key after platform check:", !!apiKey);
         } catch (err) {
           console.warn("Platform key selection failed, falling back to server config:", err);
         }
       }
 
-      // If still no key, try environment variable
       if (!apiKey) {
-        apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      }
-
-      if (!apiKey) {
+        console.warn("LIVE STUDIO: FINAL API KEY CHECK FAILED. Throwing error.");
         throw new Error("Gemini API Key is required for the Live Protocol. Please set VITE_GEMINI_API_KEY in your environment variables or select a key via the platform.");
       }
 
+      console.log(`LIVE STUDIO: Initializing with API Key ending in: ...${apiKey.slice(-4)}`);
       const ai = new GoogleGenAI({ apiKey });
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: true,

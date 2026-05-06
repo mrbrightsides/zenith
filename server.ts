@@ -19,7 +19,6 @@ const __dirname = path.dirname(__filename);
 // Initialize Firebase Admin
 let isFirebaseAdminInitialized = false;
 let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID;
-let firebaseConfigKey: string | null = null;
 
 // Try to load from config file if env is missing
 try {
@@ -28,9 +27,6 @@ try {
   if (config.projectId) {
     firebaseProjectId = config.projectId;
     console.log(`[SYSTEM] Using Firebase Project ID from config: ${firebaseProjectId}`);
-  }
-  if (config.apiKey) {
-    firebaseConfigKey = config.apiKey;
   }
 } catch (e) {
   // Config file might not exist or be invalid, fallback to env
@@ -81,42 +77,13 @@ const swaggerOptions = {
 
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 
-// Helper to validate if a string is a real value and not a placeholder
-const isValidConfigString = (val: any) => {
-  if (typeof val !== 'string') return false;
-  const trimmed = val.trim();
-  const placeholders = ['your_api_key_here', 'your_project_id_here', 'undefined', 'null', '', 'your_gemini_api_key_here'];
-  
-  // Prevent using Firebase API key as Gemini API key
-  if (firebaseConfigKey && trimmed === firebaseConfigKey) {
-    console.warn("[SYSTEM] Detected Firebase API Key being used as Gemini API Key. Ignoring.");
-    return false;
-  }
-  
-  return trimmed !== '' && !placeholders.includes(trimmed.toLowerCase());
-};
-
 // Initialize Gemini on the server where process.env is available at runtime
 const getGeminiClient = () => {
-  const envKey = process.env.GEMINI_API_KEY;
-  const viteKey = import.meta.env.VITE_GEMINI_API_KEY;
-  
-  let apiKey = null;
-  
-  if (isValidConfigString(envKey)) {
-    apiKey = envKey;
-    console.log(`[SYSTEM] Using GEMINI_API_KEY from environment (length: ${apiKey.length}, starts with: ${apiKey.substring(0, 4)}...)`);
-  } else if (isValidConfigString(viteKey)) {
-    apiKey = viteKey;
-    console.log(`[SYSTEM] Using VITE_GEMINI_API_KEY from environment (length: ${apiKey.length}, starts with: ${apiKey.substring(0, 4)}...)`);
-  }
-
+  const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn("WARNING: GEMINI_API_KEY is not set or contains a placeholder on the server.");
+    console.warn("WARNING: GEMINI_API_KEY is not set on the server.");
     return null;
   }
-  
-  console.log(`[SYSTEM] Initializing Gemini Client with key starting with: ${apiKey.substring(0, 6)}...`);
   return new GoogleGenAI({ apiKey });
 };
 
@@ -387,35 +354,6 @@ async function startServer() {
   // API Routes for Gemini (Server-side proxy)
   /**
    * @openapi
-   * /api/webhooks/gemini:
-   *   post:
-   *     summary: Handle real-time notifications from Gemini API
-   *     tags: [Agentic Core]
-   *     responses:
-   *       200:
-   *         description: Webhook received
-   */
-  app.post('/api/webhooks/gemini', (req, res) => {
-    const event = req.body;
-    console.log(`[ZENITH WEBHOOK] Received event: ${event.type || 'unknown'}`);
-    
-    // Broadcast via WebSocket to all connected clients
-    const broadcastMsg = JSON.stringify({
-      type: 'gemini_webhook',
-      payload: event
-    });
-    
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(broadcastMsg);
-      }
-    });
-    
-    res.json({ status: 'received' });
-  });
-
-  /**
-   * @openapi
    * /api/gemini/text:
    *   post:
    *     summary: Generate text using Gemini 3.1 Pro
@@ -591,23 +529,14 @@ async function startServer() {
 
     try {
       const enrichedPrompt = `${style || 'Cinematic'} style video: ${prompt}. Production quality: High. Motion: Consistent and fluid.`;
-      
-      const webhookConfig = {
-        uri: `${req.protocol}://${req.get('host')}/api/webhooks/gemini`,
-        subscribed_events: ["video.generated", "operation.completed"]
-      };
-
-      console.log(`ZENITH SERVER: Starting video generation with Webhook: ${webhookConfig.uri}`);
-
       let operation = await ai.models.generateVideos({
         model: 'veo-3.1-fast-generate-preview',
         prompt: enrichedPrompt,
         config: {
           numberOfVideos: 1,
           resolution: selectedResolution,
-          aspectRatio: selectedAspectRatio,
-          webhook_config: webhookConfig
-        } as any
+          aspectRatio: selectedAspectRatio
+        }
       });
 
       while (!operation.done) {
@@ -628,66 +557,11 @@ async function startServer() {
     }
   });
 
-  /**
-   * @openapi
-   * /api/gemma/local:
-   *   post:
-   *     summary: Experimental Proxy for Local Gemma 4 (Global Resilience Track)
-   *     tags: [Sovereignty]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               prompt:
-   *                 type: string
-   *               model:
-   *                 type: string
-   *     responses:
-   *       200:
-   *         description: Local agent response
-   */
-  app.post('/api/gemma/local', async (req, res) => {
-    const { prompt, model } = req.body;
-    console.log(`[SOVEREIGN] Requesting local agent (${model})...`);
-    
-    try {
-      // Proxy to local Ollama instance (typically mapped in container or running on host)
-      const ollamaResponse = await fetch('http://localhost:11434/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: model || 'gemma4:8b',
-          prompt: prompt,
-          stream: false
-        })
-      });
-
-      if (!ollamaResponse.ok) {
-        throw new Error('Local agent unreachable');
-      }
-
-      const data: any = await ollamaResponse.json();
-      res.json({ text: data.response });
-    } catch (error: any) {
-      console.warn(`[SOVEREIGN] Local Agent Error: ${error.message}. Providing mock response for offline simulation.`);
-      // Mock for development/simulation
-      res.json({ 
-        text: `[OFFLINE SIMULATION] ZENITH Sovereign Mode: I have analyzed your request regarding "${prompt.substring(0, 30)}...". As an offline Gemma 4 agent, I can coordinate medical supplies via local P2P radio even without cloud connectivity.` 
-      });
-    }
-  });
-
     app.get('/api/config', async (req, res) => {
       console.log("[API/CONFIG] Request received");
       let firebaseApiKey = process.env.FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY;
       let firebaseProjectId = process.env.FIREBASE_PROJECT_ID || import.meta.env.VITE_FIREBASE_PROJECT_ID;
-      
-      const envGeminiKey = process.env.GEMINI_API_KEY;
-      const viteGeminiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      let geminiApiKey = isValidConfigString(envGeminiKey) ? envGeminiKey : (isValidConfigString(viteGeminiKey) ? viteGeminiKey : null);
+      const geminiApiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
 
       // Fallback to config file
       try {

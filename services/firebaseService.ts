@@ -14,7 +14,6 @@ const isValidConfigString = (val: any) => {
 let firebaseApp: any = null;
 export let auth: any = null;
 export let db: any = null;
-export let runtimeGeminiApiKey: string | null = null;
 
 import firebaseAppletConfig from '../firebase-applet-config.json';
 
@@ -76,15 +75,11 @@ export const synchronizeCloudConfig = async (token?: string) => {
     }
     
     const config = await response.json();
-    console.log("ZENITH CLOUD: Config received. Cloud Configured:", config.isCloudConfigured, "Has Gemini Key:", !!config.geminiApiKey);
+    console.log("ZENITH CLOUD: Config received. Cloud Configured:", config.isCloudConfigured);
     
     if (config.isCloudConfigured && !firebaseApp) {
       console.log("ZENITH CLOUD: Initializing Firebase with runtime config.");
       initFirebase(config.firebase);
-    }
-    
-    if (config.geminiApiKey) {
-      runtimeGeminiApiKey = config.geminiApiKey;
     }
     
     return config;

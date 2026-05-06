@@ -3,9 +3,6 @@ import { Type, GenerateContentResponse, Modality } from "@google/genai";
 
 export class GeminiService {
   static async analyzeAudioToVisualPrompt(audioBase64: string, mimeType: string) {
-    // This one is special as it sends base64 audio.
-    // For now, we'll proxy it through a new server route or keep it as is if the key is provided.
-    // Let's create a generic proxy approach.
     const response = await fetch('/api/gemini/text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
