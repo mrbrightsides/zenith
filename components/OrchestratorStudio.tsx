@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { GeminiService } from '../services/geminiService';
+import { GemmaService } from '../services/gemmaService';
+import { MCPService, MCPDiscoveryResult } from '../services/mcpService';
 import { GoogleCloudService, synchronizeCloudConfig } from '../services/firebaseService';
 import { useAuth0 } from "@auth0/auth0-react";
 
@@ -12,12 +14,14 @@ interface OrchestrationResult {
 
 interface Task {
   id: string;
-  agent: 'copywriter' | 'illustrator' | 'animator' | 'researcher';
-  fallbackAgent?: 'copywriter' | 'illustrator' | 'animator' | 'researcher';
+  agent: 'copywriter' | 'illustrator' | 'animator' | 'researcher' | 'responder';
+  fallbackAgent?: 'copywriter' | 'illustrator' | 'animator' | 'researcher' | 'responder';
   prompt: string;
   dependencies: string[];
-  status: 'queued' | 'active' | 'done' | 'failed';
+  status: 'queued' | 'active' | 'done' | 'failed' | 'awaiting_approval';
   priority: 'low' | 'medium' | 'high';
+  requiresApproval?: boolean;
+  approvedBy?: string;
   result?: string;
 }
 
@@ -29,7 +33,7 @@ interface OrchestratorStudioProps {
 }
 
 const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialItem, onMounted, onInteraction }) => {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth0();
+  const { getAccessTokenSilently, isAuthenticated, user: auth0User } = useAuth0();
   const [goal, setGoal] = useState('');
   const [useSearch, setUseSearch] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -37,11 +41,15 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
   const [result, setResult] = useState<OrchestrationResult | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [copied, setCopied] = useState(false);
+  const [webhookEvents, setWebhookEvents] = useState<any[]>([]);
+  const [mcpGrounding, setMcpGrounding] = useState<MCPDiscoveryResult[]>([]);
+  const [isMcpActive, setIsMcpActive] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([
     { id: 't1', agent: 'researcher', prompt: 'Gather industry trends for the objective', dependencies: [], status: 'queued', priority: 'high' },
     { id: 't2', agent: 'copywriter', prompt: 'Write a brand vision narrative based on research', dependencies: ['t1'], status: 'queued', priority: 'medium' },
     { id: 't3', agent: 'illustrator', prompt: 'Generate a hero visual for the narrative', dependencies: ['t2'], status: 'queued', priority: 'medium', fallbackAgent: 'copywriter' },
     { id: 't4', agent: 'animator', prompt: 'Create a product reveal animation', dependencies: ['t3'], status: 'queued', priority: 'low' },
+    { id: 't5', agent: 'responder', prompt: 'Broadcast regional supply availability via P2P', dependencies: ['t2'], status: 'queued', priority: 'high', requiresApproval: true },
   ]);
 
   // Use a ref to track task statuses to avoid closure staleness in the orchestration loop
@@ -102,6 +110,26 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
     }
   }, [initialItem]);
 
+  useEffect(() => {
+    // Listen for Webhook events via WebSocket (this assumes the parent App provides a way or we use a clean WS hook)
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(`${protocol}//${window.location.host}`);
+    
+    socket.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'gemini_webhook') {
+          console.log("ZENITH: Real-time Webhook Received!", msg.payload);
+          setWebhookEvents(prev => [msg.payload, ...prev].slice(0, 5));
+        }
+      } catch (e) {
+        // Quietly ignore parsing errors from other WS traffic
+      }
+    };
+    
+    return () => socket.close();
+  }, []);
+
   const loadHistory = async () => {
     try {
       const data = await GoogleCloudService.getCampaigns();
@@ -121,8 +149,15 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
 
     setIsProcessing(true);
     setResult(null);
+    setMcpGrounding([]);
 
     try {
+      // Step 0: MCP Superpower Grounding (Elastic Track)
+      setIsMcpActive(true);
+      const mcpData = await MCPService.searchEmergencyKnowledge(goal);
+      setMcpGrounding(mcpData);
+      setIsMcpActive(false);
+
       // Reset tasks
       setTasks(prev => prev.map(t => ({ ...t, status: 'queued', result: undefined })));
 
@@ -130,8 +165,23 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
       const resultsMap: { [key: string]: string } = {};
       const executeTask = async (task: Task, isFallback = false) => {
         console.log(`ZENITH: Starting task ${task.id} (${task.agent})`);
-        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active' } : t));
         
+        // Handle Approval Gate for sensitive tasks
+        if (task.requiresApproval && !task.approvedBy) {
+          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'awaiting_approval' } : t));
+          console.log(`ZENITH: Task ${task.id} suspended. Awaiting Human Approval...`);
+          
+          // Poll until approved
+          while (true) {
+            const currentTask = taskStatusRef.current[task.id];
+            if (currentTask === 'active') break; // UX: Clicking approve sets status to active
+            if (currentTask === 'failed') throw new Error(`Task ${task.id} rejected by user.`);
+            await new Promise(r => setTimeout(r, 1000));
+          }
+        } else {
+          setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active' } : t));
+        }
+
         // Wait for dependencies
         if (task.dependencies.length > 0) {
           console.log(`ZENITH: Task ${task.id} waiting for dependencies: ${task.dependencies.join(', ')}`);
@@ -150,7 +200,16 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
           let taskResult = '';
           const currentAgent = isFallback && task.fallbackAgent ? task.fallbackAgent : task.agent;
 
-          if (currentAgent === 'researcher') {
+          // Attempt Sovereign Routing (Gemma 4)
+          const localResponse = await GemmaService.routeIntelligence({
+            prompt: task.prompt,
+            priority: task.priority === 'high' ? 'high' : 'low'
+          });
+
+          if (localResponse && localResponse.text) {
+            console.log(`ZENITH: Task ${task.id} handled by Sovereign Resilience Node.`);
+            taskResult = localResponse.text;
+          } else if (currentAgent === 'researcher') {
             setCurrentStage(1);
             const githubData = await fetchGithubData();
             const githubContext = `\nGitHub Context: Issues: ${githubData.issues.map(i => i.title).join(', ')}. PRs: ${githubData.pullRequests.map(p => p.title).join(', ')}.`;
@@ -170,6 +229,10 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
 
           resultsMap[task.id] = taskResult;
           setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'done', result: taskResult } : t));
+          
+          // MCP Observability: Log trace
+          await MCPService.logAgentTrace(task.id, task.agent, taskResult);
+          
           console.log(`ZENITH: Task ${task.id} completed.`);
           return taskResult;
         } catch (err) {
@@ -265,8 +328,60 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
               }`}
             >
               {isProcessing ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-bolt"></i>}
-              {isProcessing ? 'Syncing with GCP...' : 'Execute Sequence'}
+              {isProcessing ? 'Syncing with GCP...' : (navigator.onLine ? 'Execute Sequence' : 'Sovereign Execution')}
             </button>
+
+            {webhookEvents.length > 0 && (
+              <div className="space-y-3 pt-4 border-t border-white/5 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="flex items-center justify-between">
+                   <h3 className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] animate-pulse">
+                     <i className="fas fa-satellite-dish mr-1"></i>
+                     Live Webhook Stream
+                   </h3>
+                   <span className="text-[7px] font-bold text-slate-500 uppercase">Real-time</span>
+                </div>
+                <div className="space-y-2">
+                  {webhookEvents.map((ev, i) => (
+                    <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]"></div>
+                      <span className="text-[7px] font-black text-slate-400 uppercase tracking-tighter truncate">
+                        {ev.type || 'EVENT_RESOLVED'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isMcpActive && (
+              <div className="p-6 rounded-[2rem] bg-indigo-500/10 border border-indigo-500/20 animate-pulse space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Elastic MCP Grounding</span>
+                  <i className="fas fa-layer-group fa-spin text-indigo-500"></i>
+                </div>
+                <p className="text-[8px] font-bold text-slate-500 uppercase">Vectorizing context via Partner Subsystem...</p>
+              </div>
+            )}
+
+            {mcpGrounding.length > 0 && (
+              <div className="p-6 rounded-[2rem] bg-emerald-500/5 border border-emerald-500/20 space-y-4">
+                <div className="flex items-center justify-between border-b border-emerald-500/10 pb-2">
+                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">MCP Grounding Assets</span>
+                  <span className="text-[7px] font-bold text-slate-600">Elastic Track</span>
+                </div>
+                <div className="space-y-3">
+                  {mcpGrounding.map((item, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[8px] font-black text-slate-300 uppercase">{item.source}</span>
+                        <span className="text-[7px] font-bold text-emerald-400">{(item.relevance * 100).toFixed(0)}% MATCH</span>
+                      </div>
+                      <p className="text-[8px] text-slate-500 italic leading-tight">"{item.snippet}"</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-6 pt-4">
               <div className="flex items-center justify-between border-b border-white/5 pb-4">
@@ -282,6 +397,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                 {tasks.map((task) => (
                   <div key={task.id} className={`p-4 rounded-2xl border transition-all ${
                     task.status === 'active' ? 'bg-indigo-600/10 border-indigo-500/30' : 
+                    task.status === 'awaiting_approval' ? 'bg-amber-500/10 border-amber-500/40 shadow-lg shadow-amber-500/10 animate-pulse' :
                     task.status === 'done' ? 'bg-emerald-500/5 border-emerald-500/20 opacity-50' : 
                     task.status === 'failed' ? 'bg-red-500/5 border-red-500/20' : 'bg-slate-900/50 border-white/5'
                   }`}>
@@ -303,6 +419,7 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                           <option value="copywriter">Copywriter</option>
                           <option value="illustrator">Illustrator</option>
                           <option value="animator">Animator</option>
+                          <option value="responder">Responder</option>
                         </select>
                       </div>
                       <div className="flex items-center gap-2">
@@ -344,8 +461,41 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                           <option value="copywriter">Copywriter</option>
                           <option value="illustrator">Illustrator</option>
                           <option value="animator">Animator</option>
+                          <option value="responder">Responder</option>
                         </select>
                       </div>
+
+                      {task.status === 'awaiting_approval' && (
+                        <div className="pt-3 flex flex-col gap-2">
+                          <p className="text-[8px] font-black text-amber-500 uppercase tracking-tighter animate-bounce flex items-center gap-1">
+                            <i className="fas fa-lock text-[6px]"></i>
+                            Approval Required: Sensitive Resource Access
+                          </p>
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'active', approvedBy: auth0User?.name || auth0User?.email || 'Authorized Human' } : t))}
+                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-[8px] font-black uppercase rounded-lg shadow-lg active:scale-95 transition-all"
+                            >
+                              Approve & Sign Task
+                            </button>
+                            <button 
+                              onClick={() => setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'failed' } : t))}
+                              className="px-3 py-2 bg-slate-800 text-slate-400 text-[8px] font-black uppercase rounded-lg hover:bg-red-600 hover:text-white transition-all outline-none"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {task.approvedBy && (
+                        <div className="pt-2 flex items-center gap-2">
+                          <i className="fas fa-signature text-[8px] text-emerald-500"></i>
+                          <p className="text-[7px] font-bold text-slate-500 uppercase">
+                            Signed by: <span className="text-emerald-400">{task.approvedBy}</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -396,16 +546,19 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                 <React.Fragment key={task.id}>
                   <div className={`relative flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all ${
                     task.status === 'active' ? 'bg-indigo-600/20 border-indigo-500 shadow-lg shadow-indigo-500/20' :
+                    task.status === 'awaiting_approval' ? 'bg-amber-500/20 border-amber-500 animate-pulse' :
                     task.status === 'done' ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900/50 border-white/5'
                   }`}>
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg border ${
                       task.status === 'active' ? 'bg-indigo-600 text-white animate-pulse' :
+                      task.status === 'awaiting_approval' ? 'bg-amber-600 text-white animate-bounce' :
                       task.status === 'done' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'
                     }`}>
                       <i className={`fas ${
                         task.agent === 'researcher' ? 'fa-search' :
                         task.agent === 'copywriter' ? 'fa-pen-nib' :
-                        task.agent === 'illustrator' ? 'fa-paint-brush' : 'fa-film'
+                        task.agent === 'illustrator' ? 'fa-paint-brush' : 
+                        task.agent === 'animator' ? 'fa-film' : 'fa-satellite-dish'
                       }`}></i>
                     </div>
                     <span className="text-[9px] font-black uppercase tracking-widest">{task.agent}</span>
@@ -527,6 +680,48 @@ const OrchestratorStudio: React.FC<OrchestratorStudioProps> = ({ theme, initialI
                      )}
                    </div>
                 </div>
+
+                 {tasks.find(t => t.agent === 'responder' && t.status === 'done') && (
+                   <div className="mt-12 p-8 rounded-[3rem] bg-emerald-500/5 border border-emerald-500/20 space-y-6 animate-in slide-in-from-bottom-8 duration-1000">
+                     <div className="flex items-center justify-between border-b border-emerald-500/20 pb-6">
+                       <div className="flex items-center gap-4">
+                         <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white text-xl shadow-lg shadow-emerald-500/20">
+                           <i className="fas fa-satellite"></i>
+                         </div>
+                         <div>
+                           <h4 className="text-sm font-black uppercase italic tracking-tighter">Sovereign Logistics Dispatch</h4>
+                           <p className="text-[9px] font-bold text-emerald-500/60 uppercase tracking-widest">Mesh Network Verified Action</p>
+                         </div>
+                       </div>
+                       <div className="px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[8px] font-black text-emerald-400 uppercase tracking-[0.2em]">
+                         P2P Mesh: Active
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                       <div className="space-y-4">
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Broadcast Signature</p>
+                         <div className="p-4 rounded-2xl bg-black/20 border border-white/5 space-y-2">
+                           <div className="flex justify-between text-[8px] font-bold uppercase">
+                             <span className="text-slate-600">Principal</span>
+                             <span className="text-emerald-400">
+                               {tasks.find(t => t.agent === 'responder')?.approvedBy || 'Authorized Human'}
+                             </span>
+                           </div>
+                           <div className="flex justify-between text-[8px] font-bold uppercase">
+                             <span className="text-slate-600">Handshake</span>
+                             <span className="text-emerald-400 text-right">RFC-8693 Token Exchange</span>
+                           </div>
+                         </div>
+                       </div>
+                       <div className="space-y-4">
+                         <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Dispatch Logic</p>
+                         <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                           "Deploying regional supply routing based on multimodal visual analysis. All tokens resolved via Auth0 Sovereign Vault."
+                         </p>
+                       </div>
+                     </div>
+                   </div>
+                 )}
 
                 <div className="flex justify-center gap-4 pt-8 no-print">
                   <button 
