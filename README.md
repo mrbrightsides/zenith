@@ -75,17 +75,6 @@ A personalized start to your day:
 
 ---
 
-## 🎬 180s Demo Simulation Script
-For judges and reviewers, here is the recommended path to experience the full power of Zenith:
-
-1.  **0:00 - 0:45 (Multimodal Handshake):** Initialize **Live Studio**. Engage in a voice conversation and show an object to the camera. Ask Zenith to "Analyze the scene."
-2.  **0:45 - 1:15 (Neural Vision):** Switch to **Visual Studio**. Upload a complex diagram or image in **Analysis Mode** to see the deep reasoning report.
-3.  **1:15 - 1:45 (Agentic Orchestration):** Navigate to **Orchestrator Studio**. Input a complex goal (e.g., "Plan a marketing campaign for a new eco-car"). Watch the **OpenClaw** graph decompose the goal into sub-tasks.
-4.  **1:45 - 2:30 (Authorized to Act):** Go to **Governance Studio**. Trigger a high-stakes action (e.g., "Deploy to Production"). Complete the Auth0 MFA handshake. Observe the **"Authorized to Act"** badge illuminate.
-5.  **2:30 - 3:00 (Vault Integrity):** Verify the **Vault Studio** audit trail to see the secure token release.
-
----
-
 ## ⚙️ Tech Stack & Topology
 
 - **AI Engine:** @google/genai (Gemini 3.1 Pro, Gemini 2.5 Flash, Imagen 3, Veo)
