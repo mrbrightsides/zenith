@@ -8,8 +8,6 @@
 ![Deployment](https://img.shields.io/badge/CI/CD-Verified_Success-success?style=for-the-badge&logo=github-actions&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini_3.1-Pro_Full_Orchestration-blue?style=for-the-badge&logo=google-gemini&logoColor=white)
 
-**ZENITH LIVE** is a high-stakes, dual-purpose agentic platform engineered for the **Gemini Live Agent Challenge** and the **Auth0 "Authorized to Act" Hackathon**. It demonstrates the peak of real-time multimodal interaction unified with secure, governed third-party agency.
-
 Zenith pushes the boundaries of what AI agents can do by acting as a secure **Intermediary Agent**—bridging the gap between local, sovereign AI (like **OpenClaw**) and the digital world, while providing ultra-low latency voice/vision handshakes.
 
 ![Status](https://img.shields.io/badge/Status-Production_Ready-success?style=flat-square)
