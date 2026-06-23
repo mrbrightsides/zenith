@@ -138,7 +138,3 @@ The application will be available at `http://localhost:8080`.
 #### 🎬 Morning Briefing
 1. On your first login of the day, the **Morning Briefing** modal will trigger automatically.
 2. Observe the **Veo** generated cinematic summary of your digital delta.
-
----
-
-*Engineered for the Gemini Live Agent Challenge & Auth0 Authorized to Act Hackathon 2026 by mrbrightsides*
