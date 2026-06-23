@@ -7,6 +7,7 @@
 ![OpenFGA](https://img.shields.io/badge/OpenFGA-Validated-6366f1?style=for-the-badge&logo=auth0&logoColor=white)
 ![Deployment](https://img.shields.io/badge/CI/CD-Verified_Success-success?style=for-the-badge&logo=github-actions&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini_3.1-Pro_Full_Orchestration-blue?style=for-the-badge&logo=google-gemini&logoColor=white)
+[![RepoRanker](https://reporanker.com/badge/mrbrightsides/zenith)](https://reporanker.com/repos/mrbrightsides/zenith)
 
 Zenith pushes the boundaries of what AI agents can do by acting as a secure **Intermediary Agent**—bridging the gap between local, sovereign AI (like **OpenClaw**) and the digital world, while providing ultra-low latency voice/vision handshakes.
 
